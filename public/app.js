@@ -380,11 +380,16 @@ route(/^#\/menu$/, async (view) => {
         await refresh();
         status.textContent = data.online ? `Pronto: ${data.songs.length} músicas e ${data.setlists.length} repertórios salvos neste aparelho.` : 'Sem internet: usando o conteúdo já baixado.';
       }),
-      btn('note', 'Músicas', `${data.songs.length} neste aparelho`, null, '#/songs'),
-      btn('list', 'Repertórios', `${data.setlists.length} neste aparelho`, null, '#/setlists'),
+      btn('note', 'Músicas', h('span', { class: 'n-songs' }, `${data.songs.length} neste aparelho`), null, '#/songs'),
+      btn('plus', 'Importar cifra', 'Colar o texto ou o link de uma cifra', () => importDialog()),
+      btn('list', 'Repertórios', h('span', { class: 'n-sets' }, `${data.setlists.length} neste aparelho`), null, '#/setlists'),
       btn('tuner', 'Afinador', 'Violão, cavaco, ukulele e baixo', null, '#/afinador'),
       btn('logout', 'Sair', 'Encerrar a sessão neste aparelho', () => { if (confirm('Sair da conta neste aparelho?')) logout(); })));
-  refresh().then(() => { if (location.hash === '#/menu') { $('.menu-btn:nth-of-type(2) small')?.replaceChildren(`${data.songs.length} neste aparelho`); } });
+  refresh().then(() => {
+    if (location.hash !== '#/menu') return;
+    $('.n-songs')?.replaceChildren(`${data.songs.length} neste aparelho`);
+    $('.n-sets')?.replaceChildren(`${data.setlists.length} neste aparelho`);
+  });
 });
 
 /* ---------------- lista de musicas ---------------- */
@@ -435,6 +440,9 @@ route(/^#\/songs$/, async (view) => {
   draw();
   view.replaceChildren(
     h('div', { class: 'page' },
+      h('div', { class: 'actions-row' },
+        h('a', { class: 'btn pri big grow', href: '#/song/new' }, icon('edit', 18), ' Nova música'),
+        h('button', { class: 'btn big grow', type: 'button', onclick: () => importDialog() }, icon('download', 18), ' Importar cifra')),
       h('div', { class: 'searchbar' }, icon('search', 20), q),
       sortBar, filterBox, count, listEl),
     fab([['edit', 'Nova música', () => { location.hash = '#/song/new'; }], ['download', 'Importar cifra', () => importDialog()]]));

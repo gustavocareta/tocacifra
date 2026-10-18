@@ -290,3 +290,7 @@ main.wide { max-width: 1100px; }
 .stage .bar .rb:active { background: #2fa866; color: #fff; }
 .stage .bar .clock { font-size: 12px; min-width: 34px; }
 @media (max-width: 400px) { .stage .bar .clock { display: none; } }
+
+.actions-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.actions-row .grow { flex: 1; }
+
