@@ -394,7 +394,7 @@ route(/^#\/menu$/, async (view) => {
 });
 
 /* ---------------- lista de musicas ---------------- */
-const songFilters = { term: '', artist: '', style: '', sort: 't' }; // lembrados ao voltar para a lista
+const songFilters = { term: '', artist: '', style: '', sort: 't', mode: 'songs' }; // lembrados ao voltar para a lista
 
 /** <select> de filtro com "Todos ..." e as opcoes de `items` ({key,name,count}). */
 function facetSelect(allLabel, items, current, onPick) {
@@ -410,6 +410,7 @@ route(/^#\/songs$/, async (view) => {
   const listEl = h('div', { class: 'list' });
   const count = h('p', { class: 'muted count' });
   const sortBar = h('div', { class: 'seg', role: 'group', 'aria-label': 'Ordenar por' });
+  const modeBar = h('div', { class: 'seg', role: 'group', 'aria-label': 'Ver por' });
   const filterBox = h('details', { class: 'filters' }, h('summary', {}, 'Filtros'), filters);
   const SORTS = [['t', 'Título'], ['a', 'Artista'], ['o', 'Tom']];
   const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
@@ -429,8 +430,22 @@ route(/^#\/songs$/, async (view) => {
       facetSelect('Todos os estilos', f.styles, songFilters.style, (v) => { songFilters.style = v; draw(); }),
       active ? h('button', { class: 'btn sm', onclick: () => { Object.assign(songFilters, { artist: '', style: '' }); draw(); } }, 'Limpar filtros') : null);
     sortBar.replaceChildren(...SORTS.map(([k, label]) => h('button', { type: 'button', class: songFilters.sort === k ? 'on' : '', 'aria-pressed': songFilters.sort === k, onclick: () => { songFilters.sort = k; draw(); } }, label)));
+    const MODES = [['songs', 'Músicas'], ['artists', 'Artistas']];
+    modeBar.replaceChildren(...MODES.map(([k, label]) => h('button', { type: 'button', class: songFilters.mode === k ? 'on' : '', 'aria-pressed': songFilters.mode === k, onclick: () => { songFilters.mode = k; if (k === 'songs') songFilters.artist = ''; draw(); } }, label)));
+    sortBar.hidden = songFilters.mode === 'artists' && !songFilters.artist;
+    if (songFilters.mode === 'artists' && !songFilters.artist) {
+      // "Artistas": a propria aba ja abre a escolha do artista; tocar num artista mostra as musicas dele
+      const t = songFilters.term.trim().toLowerCase();
+      const arts = f.artists.filter((a) => !t || a.name.toLowerCase().includes(t));
+      count.textContent = data.songs.length ? `${arts.length} artistas` : '';
+      listEl.replaceChildren(...arts.map((a) => h('button', { type: 'button', class: 'li li-main artist-row', onclick: () => { songFilters.artist = a.key; draw(); } }, h('b', {}, a.name), h('small', {}, `${a.count} música${a.count > 1 ? 's' : ''}`))));
+      if (!arts.length) listEl.append(h('p', { class: 'empty' }, 'Nenhum artista encontrado.'));
+      return;
+    }
+    const backRow = songFilters.mode === 'artists' && songFilters.artist
+      ? h('button', { type: 'button', class: 'btn sm', onclick: () => { songFilters.artist = ''; draw(); } }, '‹ Todos os artistas') : null;
     count.textContent = data.songs.length ? `${list.length} de ${data.songs.length} músicas` : '';
-    listEl.replaceChildren(...list.map((s) => h('div', { class: 'li' },
+    listEl.replaceChildren(backRow, ...list.map((s) => h('div', { class: 'li' },
       h('a', { class: 'li-main', href: `#/palco?song=${s.id}` },
         h('b', {}, s.title),
         h('small', {}, [s.artist, s.tone && `Tom ${s.tone}`, s.style].filter(Boolean).join(' · ') || 'Sem artista')),
@@ -445,7 +460,7 @@ route(/^#\/songs$/, async (view) => {
         h('a', { class: 'btn pri big grow', href: '#/song/new' }, icon('edit', 18), ' Nova música'),
         h('button', { class: 'btn big grow', type: 'button', onclick: () => importDialog() }, icon('download', 18), ' Importar cifra')),
       h('div', { class: 'searchbar' }, icon('search', 20), q),
-      sortBar, filterBox, count, listEl),
+      modeBar, sortBar, filterBox, count, listEl),
     fab([['edit', 'Nova música', () => { location.hash = '#/song/new'; }], ['download', 'Importar cifra', () => importDialog()]]));
 });
 
