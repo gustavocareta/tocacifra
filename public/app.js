@@ -7,6 +7,7 @@ import { TUNINGS, detectPitch, freqToNote, nearestString, noteToFreq } from './t
 import { OfflineError } from './errors.js';
 import { createBackend } from './backend.js';
 import { importBackup, parseBackup } from './migrate.js';
+import { APK_URL, checkForUpdate, localVersion, shortSha } from './update.js';
 
 /* ---------------- utilidades ---------------- */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1009,8 +1010,40 @@ route(/^#\/config$/, async (view) => {
           h('div', { class: 'row' },
             h('button', { class: 'btn', onclick: async () => { await refresh(); toast(data.online ? 'Conteúdo atualizado e salvo para uso offline.' : 'Sem internet: usando o conteúdo já baixado.'); navigate(); } }, 'Baixar conteúdo offline'),
             h('button', { class: 'btn bad', onclick: logout }, 'Sair da conta'))),
+        updateCard(),
         backupCard())));
 });
+
+/** Cartao "Atualizar o app": no Android baixa o APK novo (instala por cima); no site/iPhone recarrega com a versao mais nova. */
+function updateCard() {
+  const native = isNativeApp();
+  const status = h('p', { class: 'muted' }, native ? 'Confira se existe uma versão mais nova do aplicativo.' : 'Carrega a versão mais nova do site neste aparelho.');
+  const actions = h('div', { class: 'row' });
+  const version = h('p', { class: 'muted' }, 'Versão: …');
+  localVersion().then((v) => { version.textContent = `Versão instalada: ${shortSha(v)}`; });
+
+  const reloadFresh = async () => {
+    try {
+      const regs = (await navigator.serviceWorker?.getRegistrations?.()) ?? [];
+      await Promise.all(regs.map((r) => r.unregister()));
+      if (window.caches) await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+    } catch { /* segue e recarrega mesmo assim */ }
+    location.reload();
+  };
+  const downloadApk = h('button', { class: 'btn pri', type: 'button', onclick: () => { location.href = APK_URL; } }, 'Baixar e instalar a nova versão');
+  const checkBtn = h('button', { class: 'btn', type: 'button', onclick: async () => {
+    checkBtn.disabled = true; status.textContent = 'Verificando…';
+    try {
+      const r = await checkForUpdate();
+      if (r.state === 'current') status.textContent = 'Você já está com a versão mais recente.';
+      else if (r.state === 'available') { status.textContent = 'Há uma versão nova! Toque em "Baixar e instalar", abra o arquivo baixado e toque em Instalar (os seus dados continuam).'; actions.append(downloadApk); }
+      else status.textContent = 'Não consegui comparar as versões. Toque em "Baixar e instalar" para pegar a mais recente.', actions.append(downloadApk);
+    } catch (e) { status.textContent = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'Sem internet para verificar.' : e.message; } finally { checkBtn.disabled = false; }
+  } }, 'Verificar atualização');
+  if (native) actions.append(checkBtn);
+  else actions.append(h('button', { class: 'btn pri', type: 'button', onclick: reloadFresh }, 'Atualizar agora'));
+  return h('div', { class: 'card' }, h('h2', {}, 'Atualizar o app'), version, status, actions);
+}
 
 /** Cartao "Importar de arquivo": traz musicas e repertorios de um backup .json (ex.: vindos do ToqueFacil). */
 function backupCard() {

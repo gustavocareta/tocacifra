@@ -56,6 +56,10 @@ jobs:
       - name: Permissoes e icone do app
         run: node scripts/android-prepare.mjs
 
+      # a versao fica dentro do app (version.json) e nas notas da release; o app compara as duas para avisar de atualizacao
+      - name: Marcar a versao do app
+        run: echo "{\"sha\":\"${GITHUB_SHA}\"}" > public/version.json
+
       - name: Copiar o site para dentro do app
         run: npx cap sync android
 
@@ -86,5 +90,5 @@ jobs:
           gh release delete android-latest --yes --cleanup-tag >/dev/null 2>&1 || true
           gh release create android-latest TocaCifra.apk \
             --title "TocaCifra para Android" \
-            --notes "Aplicativo Android (APK) do TocaCifra, gerado automaticamente. Baixe o arquivo TocaCifra.apk no celular e instale (permita 'instalar apps desconhecidos' para o navegador). Se ja tiver uma versao instalada, instale por cima; se o Android recusar, desinstale a antiga antes. Seus dados ficam na sua conta." \
+            --notes "Aplicativo Android (APK) do TocaCifra, gerado automaticamente. Baixe o arquivo TocaCifra.apk no celular e instale (permita 'instalar apps desconhecidos' para o navegador). Se ja tiver uma versao instalada, instale por cima; se o Android recusar, desinstale a antiga antes. Seus dados ficam na sua conta. [build:${GITHUB_SHA}]" \
             --latest=false
