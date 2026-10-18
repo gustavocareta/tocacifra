@@ -862,19 +862,28 @@ let activeListeners = 0; // > 0 enquanto aprendendo/testando: o painel ignora as
 const settingsCleanups = new Set(); // paineis de configuracao abertos (param de escutar ao sair)
 const runSettingsCleanups = () => { settingsCleanups.forEach((f) => f()); settingsCleanups.clear(); };
 
-/** Escuta o proximo botao do pedal (teclado ou MIDI) e chama handler(binding). Retorna a funcao que para de escutar. */
+/** No app Android o MainActivity avisa cada tecla recebida (evento 'tc-nativekey'), mesmo que o WebView nao a entregue como keydown. */
+const ANDROID_KEYS = { 19: 'ArrowUp', 20: 'ArrowDown', 21: 'ArrowLeft', 22: 'ArrowRight', 23: 'Enter', 62: 'Space', 66: 'Enter', 92: 'PageUp', 93: 'PageDown', 85: 'MediaPlayPause', 126: 'MediaPlayPause', 127: 'MediaPlayPause', 87: 'MediaTrackNext', 88: 'MediaTrackPrevious', 24: 'AudioVolumeUp', 25: 'AudioVolumeDown', 111: 'Escape', 122: 'Home', 123: 'End' };
+function nativeKeyEvent(d) {
+  const name = ANDROID_KEYS[d.code] ?? String(d.name || `KEYCODE_${d.code}`).replace(/^KEYCODE_/, 'Android_');
+  return { key: name, code: name, keyCode: d.code, repeat: false, ctrlKey: false, altKey: false, metaKey: false, target: document.body, native: true, device: d.device || '', preventDefault() {}, stopPropagation() {} };
+}
+
+/** Escuta o proximo botao do pedal (teclado ou MIDI) e chama handler(binding, evento). Retorna a funcao que para de escutar. */
 async function listenInputs(handler, { midi = false } = {}) {
   const onKey = (e) => {
     const id = keyBinding(e);
     if (!id) return;
     e.preventDefault(); e.stopPropagation();
-    if (!e.repeat) handler(id);
+    if (!e.repeat) handler(id, e);
   };
+  const onNative = (ev) => { const e = nativeKeyEvent(ev.detail); const id = keyBinding(e); if (id) handler(id, e); };
   document.addEventListener('keydown', onKey, true);
+  window.addEventListener('tc-nativekey', onNative);
   activeListeners++;
   let unsub = null;
   if (midi) { try { unsub = await midiHub.subscribe((d) => { const id = midiBinding(d); if (id) handler(id); }); } catch (err) { toast(err.message); } }
-  return () => { document.removeEventListener('keydown', onKey, true); unsub?.(); activeListeners = Math.max(0, activeListeners - 1); };
+  return () => { document.removeEventListener('keydown', onKey, true); window.removeEventListener('tc-nativekey', onNative); unsub?.(); activeListeners = Math.max(0, activeListeners - 1); };
 }
 
 /** Bloco de configuracao do pedal: aprende botoes (qualquer marca), testa e liga o MIDI. */
@@ -903,9 +912,9 @@ function pedalSection(onChange) {
     if (testing) { stopAll(); testOut.textContent = ''; render(); return; }
     stopAll(); testing = true; render();
     testOut.textContent = 'Pise nos botões do pedal…';
-    const myStop = await listenInputs((binding) => {
+    const myStop = await listenInputs((binding, ev) => {
       const a = resolveAction(cfg().bindings, binding);
-      testOut.textContent = `Recebido: ${labelFor(binding)} → ${a ? ACTIONS.find((x) => x.id === a).label : '(nenhuma ação ligada a este botão)'}`;
+      testOut.textContent = `Recebido: ${labelFor(binding)}${ev?.native ? ' (via Android' + (ev.device ? ': ' + ev.device : '') + ')' : ''} → ${a ? ACTIONS.find((x) => x.id === a).label : '(nenhuma ação ligada a este botão)'}`;
     }, { midi: cfg().midi });
     if (!testing) { myStop(); return; }
     stop = myStop;
@@ -1289,7 +1298,9 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     if (!repeat && !searching && allow(action)) pedalActions[action]();
     return true;
   };
+  let lastNative = { key: '', t: 0 };
   const onKey = (e) => {
+    if (!e.native && e.key === lastNative.key && Date.now() - lastNative.t < 250) return; // o mesmo toque ja chegou pelo Android
     if (searching || activeListeners > 0 || e.target.closest?.('input,textarea,select')) return;
     const id = keyBinding(e);
     if (id && runBinding(id, e.repeat)) { e.preventDefault(); return; }
@@ -1306,6 +1317,8 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
   };
   // captura na janela: chega mesmo se algum elemento da tela segurar o foco (WebView do Android)
   window.addEventListener('keydown', onKey, true);
+  const onNative = (ev) => { const e = nativeKeyEvent(ev.detail); lastNative = { key: e.key, t: Date.now() }; onKey(e); };
+  window.addEventListener('tc-nativekey', onNative);
   let unsubMidi = null, disposed = false;
   const onMidi = (d) => { const id = midiBinding(d); if (id && activeListeners === 0) runBinding(id); };
   async function syncMidi() {
@@ -1336,7 +1349,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
   };
   const onResize = () => { draw(true); };
   window.addEventListener('resize', onResize);
-  stageCleanup = () => { disposed = true; unsubMidi?.(); wakeLock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisible); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); window.removeEventListener('keydown', onKey, true); window.removeEventListener('resize', onResize); clearInterval(autoTimer); stopAudio(); };
+  stageCleanup = () => { disposed = true; unsubMidi?.(); wakeLock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisible); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); window.removeEventListener('keydown', onKey, true); window.removeEventListener('tc-nativekey', onNative); window.removeEventListener('resize', onResize); clearInterval(autoTimer); stopAudio(); };
 
   // toque: terco direito avanca, terco esquerdo volta (no meio nao faz nada, para poder selecionar/rolar)
   body.addEventListener('click', (e) => { const x = e.clientX / window.innerWidth; if (x > 0.66) page(1); else if (x < 0.33) page(-1); });

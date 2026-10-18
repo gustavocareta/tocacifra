@@ -44,6 +44,41 @@ gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${code}`);
 fs.writeFileSync(gradlePath, gradle);
 console.log('Assinatura estavel e versionCode', code, 'ok');
 
+// ---- teclas do pedal ----
+// Pedais Bluetooth "digitam" teclas. O MainActivity do Android recebe toda tecla antes do WebView e a repassa para a pagina
+// (evento 'tc-nativekey'), assim o pedal funciona mesmo quando o WebView nao entrega o keydown.
+const appId = JSON.parse(fs.readFileSync('capacitor.config.json', 'utf8')).appId;
+const javaDir = path.join('android/app/src/main/java', ...appId.split('.'));
+if (!fs.existsSync(path.join(javaDir, 'MainActivity.java'))) throw new Error(`MainActivity.java nao encontrado em ${javaDir}.`);
+fs.writeFileSync(path.join(javaDir, 'MainActivity.java'), `package ${appId};
+
+import android.view.InputDevice;
+import android.view.KeyEvent;
+import android.webkit.WebView;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        int code = event.getKeyCode();
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0
+                && code != KeyEvent.KEYCODE_BACK && code != KeyEvent.KEYCODE_HOME
+                && code != KeyEvent.KEYCODE_POWER && code != KeyEvent.KEYCODE_APP_SWITCH) {
+            try {
+                final WebView web = getBridge().getWebView();
+                InputDevice dev = event.getDevice();
+                String device = dev != null ? dev.getName().replaceAll("[^A-Za-z0-9 _.-]", "") : "";
+                final String js = "window.dispatchEvent(new CustomEvent('tc-nativekey',{detail:{code:" + code
+                        + ",name:'" + KeyEvent.keyCodeToString(code) + "',device:'" + device + "'}}))";
+                web.post(new Runnable() { public void run() { web.evaluateJavascript(js, null); } });
+            } catch (Exception ignored) { }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+}
+`);
+console.log('MainActivity com repasse de teclas ok');
+
 // ---- icones ----
 const im = ['magick', 'convert'].find((c) => { try { execFileSync(c, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } });
 if (!im) throw new Error('ImageMagick (magick/convert) nao esta disponivel no runner.');
