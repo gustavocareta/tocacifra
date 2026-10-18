@@ -6,6 +6,7 @@ import { INSTRUMENTS, chordShape, chordSvg } from './diagrams.js';
 import { TUNINGS, detectPitch, freqToNote, nearestString, noteToFreq } from './tuner.js';
 import { OfflineError } from './errors.js';
 import { createBackend } from './backend.js';
+import { importBackup, parseBackup } from './migrate.js';
 
 /* ---------------- utilidades ---------------- */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -962,8 +963,32 @@ route(/^#\/config$/, async (view) => {
           pending ? h('p', {}, `${pending} edição(ões) feita(s) offline aguardando sincronizar.`) : null,
           h('div', { class: 'row' },
             h('button', { class: 'btn', onclick: async () => { await refresh(); toast(data.online ? 'Conteúdo atualizado e salvo para uso offline.' : 'Sem internet: usando o conteúdo já baixado.'); navigate(); } }, 'Baixar conteúdo offline'),
-            h('button', { class: 'btn bad', onclick: logout }, 'Sair da conta'))))));
+            h('button', { class: 'btn bad', onclick: logout }, 'Sair da conta'))),
+        backupCard())));
 });
+
+/** Cartao "Importar de arquivo": traz musicas e repertorios de um backup .json (ex.: vindos do ToqueFacil). */
+function backupCard() {
+  const status = h('p', { class: 'muted' }, 'Escolha o arquivo de backup (.json). Músicas que já existem (mesmo título e artista) não são duplicadas.');
+  const input = h('input', { type: 'file', accept: '.json,application/json', hidden: true });
+  const btn = h('button', { class: 'btn', onclick: () => input.click() }, 'Importar de arquivo (.json)');
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    btn.disabled = true;
+    try {
+      const d = parseBackup(await file.text());
+      if (!confirm(`Importar ${d.songs.length} músicas e ${d.setlists.length} repertórios para a sua conta?`)) return;
+      await refresh();
+      const r = await importBackup(d, data, backend, (msg, done, total) => { status.textContent = `${done}/${total} — ${msg}`; });
+      await refresh();
+      status.textContent = `Pronto: ${r.songsAdded} músicas e ${r.setsAdded} repertórios adicionados (${r.songsSkipped} músicas e ${r.setsSkipped} repertórios já existiam).${r.failed.length ? ` ${r.failed.length} falharam: ${r.failed.slice(0, 3).join('; ')}` : ''}`;
+      toast('Importação concluída.');
+    } catch (e) { status.textContent = e.message || 'Não foi possível importar.'; } finally { btn.disabled = false; }
+  });
+  return h('div', { class: 'card' }, h('h2', {}, 'Importar de arquivo'), status, h('div', { class: 'row' }, btn, input));
+}
 
 /* ---------------- painel de palco ---------------- */
 route(/^#\/palco(\?.*)?$/, async (view, query) => {

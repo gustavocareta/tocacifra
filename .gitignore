@@ -3,3 +3,6 @@ data/
 android/
 _phone.html
 
+
+privado/
+backup-*.json
