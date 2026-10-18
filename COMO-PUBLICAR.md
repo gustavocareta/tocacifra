@@ -11,22 +11,29 @@ Você não precisa mexer em código. Este guia explica só o que é seu.
 
 ---
 
-## 1. Usar no celular (Android e iPhone)
+## 1. Instalar no celular
 
-Abra o endereço do app no navegador do celular e instale:
+### Android — aplicativo de verdade (APK)
 
-- **Android (Chrome):** menu `⋮` → **Instalar app** (ou **Adicionar à tela inicial**).
-- **iPhone/iPad (Safari — precisa ser o Safari):** botão **Compartilhar** → **Adicionar à Tela de Início**.
+1. No celular, abra **https://github.com/gustavocareta/tocacifra/releases/tag/android-latest** (ou aponte a câmera para o QR `QR-Baixar-App-Android.png`).
+2. Toque em **TocaCifra.apk** para baixar.
+3. Abra o arquivo baixado. Se o Android avisar "bloqueado por segurança", toque em **Configurações** e ative **Permitir desta fonte** (é só para este navegador). Volte e toque em **Instalar**.
+4. Se o Play Protect disser "app não verificado", toque em **Instalar mesmo assim**: o app é seu e não está na loja.
+5. Abra o **TocaCifra**, entre com o seu e-mail e senha e, no menu, toque em **Conteúdo** (com Wi-Fi) para baixar as músicas.
 
-Pronto: aparece o ícone do TocaCifra, abre em tela cheia e funciona **sem internet** depois de tocar em
-**Músicas → "Baixar conteúdo offline"** (faça isso uma vez com Wi-Fi e sempre que mudar algo no site).
+Atualizações: o GitHub gera um APK novo sempre que o app muda. Baixe de novo o mesmo arquivo e instale por cima; se o Android recusar, desinstale o antigo antes (suas músicas ficam na sua conta).
 
-**Pedal Bluetooth:** pareie nas configurações de Bluetooth do celular, depois no app vá em
-**Configurações → Pedal → Aprender**.
+### iPhone / iPad — instalável pelo Safari (sem custo)
+
+1. Abra **https://gustavocareta.github.io/tocacifra/** no **Safari** (precisa ser o Safari).
+2. Toque em **Compartilhar** (quadrado com seta para cima) → **Adicionar à Tela de Início** → **Adicionar**.
+3. Abra sempre pelo ícone. No menu, toque em **Conteúdo** (com Wi-Fi) para baixar as músicas.
+
+Um app nativo na App Store exige conta de desenvolvedor da Apple (paga); por isso, no iPhone, usamos esta instalação pelo Safari.
 
 ## 2. Criar a sua conta
 
-Na primeira vez, toque em **"Criar uma conta"**, escolha nick, e-mail e senha (mínimo 6 caracteres).
+Se ainda não tiver conta, toque em **"Criar uma conta"**, escolha nick, e-mail e senha (mínimo 6 caracteres).
 Use um e-mail seu: é por ele que você recupera a senha ("Esqueci a minha senha").
 
 > Depois de criar a **sua** conta, desligue os novos cadastros (passo 4) para ninguém mais criar conta no seu site.
@@ -70,5 +77,6 @@ Entre em <https://supabase.com/dashboard> → projeto **tocacifra**.
 
 - `supabase/schema.sql`: tabelas, regras e funções (já aplicado no projeto).
 - `public/config.js`: endereço e chave pública do Supabase.
-- Publicação automática: cada alteração na branch `main` publica a pasta `public/` (`.github/workflows/pages.yml`).
+- Publicação automática: cada alteração na branch `main` publica a pasta `public/` (`.github/workflows/pages.yml`) e gera o APK Android (`.github/workflows/android.yml`).
+- Importar por link: Edge Function `supabase/functions/import-cifra` (já publicada no projeto; "Verify JWT" desligado, a função confere o login).
 - Local: `npm start` usa um servidor Node próprio (banco SQLite) — útil para desenvolver (`/config.js` muda para `backend: 'node'`).

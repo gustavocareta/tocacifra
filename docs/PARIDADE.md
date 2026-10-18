@@ -9,7 +9,7 @@ Legenda: ✅ tem · 🟡 parcial · ❌ falta
 | Recurso do ToqueFácil | TocaCifra |
 |---|---|
 | Virar página tocando na metade direita/esquerda da tela | ✅ (terços) |
-| Menu de opções do painel | 🟡 (botões na barra; falta menu em tela cheia otimizado para celular) |
+| Menu de opções do painel | ✅ (folha de opções + barra inferior de botões redondos) |
 | Tom + / − / original | ✅ |
 | Afinador e áudio dentro do painel | 🟡 (áudio sim; afinador só em tela separada) |
 | Cardápio Musical dentro do painel | ❌ |
@@ -17,7 +17,7 @@ Legenda: ✅ tem · 🟡 parcial · ❌ falta
 | **Incluir uma música provisoriamente** no repertório durante o show | ❌ |
 | Busca local (no repertório) | ✅ |
 | **Busca no site** (biblioteca inteira) a partir do painel | ❌ |
-| Janela de instruções do painel ("não mostrar mais") | ❌ |
+| Janela de instruções do painel ("não mostrar mais") | ✅ |
 | Pedal / controle apenas por pedal | ✅ (qualquer marca) |
 
 ## Configurações
@@ -48,7 +48,7 @@ Legenda: ✅ tem · 🟡 parcial · ❌ falta
 ## Músicas, repertórios e site
 | Recurso | TocaCifra |
 |---|---|
-| Buscar por título/letra; **ordenar por título, artista ou tom** | 🟡 (busca e filtros; falta ordenar) |
+| Buscar por título/letra; **ordenar por título, artista ou tom** | ✅ (+ filtros por artista e estilo) |
 | **Grupos** (compartilhar repertórios com a banda; "exibir músicas dos grupos") | ❌ |
 | Repertórios com "momentos" | ✅ |
 | Áudio por música com velocidade 0,5x–1,5x | ✅ |
@@ -61,7 +61,7 @@ Legenda: ✅ tem · 🟡 parcial · ❌ falta
 ## Plataforma
 | Item | Situação |
 |---|---|
-| App Android instalável (APK) | ❌ hoje é PWA; plano: APK pelo GitHub Actions |
-| iPhone | PWA (App Store nativa exige conta Apple paga) |
-| Layout pensado para celular | ❌ precisa de redesign mobile-first |
-| Importar música no celular | ❌ precisa de correção (link e texto) |
+| App Android instalável (APK) | ✅ gerado pelo GitHub (Releases > android-latest) |
+| iPhone | ✅ instalável pelo Safari (sem custo); app nativo exigiria conta Apple paga |
+| Layout pensado para celular | ✅ refeito no formato do ToqueFácil: menu inicial, listas em cartões, detalhe do repertório, painel e editor |
+| Importar música no celular | ✅ texto colado e por link (função no Supabase); falta confirmar com login real |
