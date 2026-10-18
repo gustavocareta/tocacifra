@@ -394,7 +394,7 @@ route(/^#\/menu$/, async (view) => {
 });
 
 /* ---------------- lista de musicas ---------------- */
-const songFilters = { term: '', artist: '', style: '', sort: 't', mode: 'songs' }; // lembrados ao voltar para a lista
+const songFilters = { term: '', artist: '', style: '', sort: 't', tone: '', mode: 'songs' }; // lembrados ao voltar para a lista
 
 /** <select> de filtro com "Todos ..." e as opcoes de `items` ({key,name,count}). */
 function facetSelect(allLabel, items, current, onPick) {
@@ -406,51 +406,51 @@ function facetSelect(allLabel, items, current, onPick) {
 route(/^#\/songs$/, async (view) => {
   await refresh();
   const q = h('input', { type: 'search', placeholder: 'Buscar por título, letra ou artista', value: songFilters.term, enterkeyhint: 'search', autocomplete: 'off' });
-  const filters = h('div', { class: 'filters-body' });
   const listEl = h('div', { class: 'list' });
   const count = h('p', { class: 'muted count' });
-  const sortBar = h('div', { class: 'seg', role: 'group', 'aria-label': 'Ordenar por' });
   const modeBar = h('div', { class: 'seg', role: 'group', 'aria-label': 'Ver por' });
-  const filterBox = h('details', { class: 'filters' }, h('summary', {}, 'Filtros'), filters);
-  const SORTS = [['t', 'Título'], ['a', 'Artista'], ['o', 'Tom']];
   const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
-  const cmp = { t: (a, b) => collator.compare(a.title, b.title), a: (a, b) => collator.compare(a.artist || '~', b.artist || '~') || collator.compare(a.title, b.title), o: (a, b) => collator.compare(a.tone || '~', b.tone || '~') || collator.compare(a.title, b.title) };
+  const byTitleCmp = (a, b) => collator.compare(a.title, b.title);
+  const MODES = [['songs', 'Músicas'], ['artists', 'Artistas'], ['tones', 'Tom']];
+  const toneLabel = (t) => t || 'Sem tom';
 
   const draw = () => {
     const f = facets(data.songs);
-    // se o artista/estilo escolhido nao existe mais (ex.: a ultima musica dele foi apagada), volta para "todos"
+    // se o artista/tom escolhido nao existe mais (ex.: a ultima musica dele foi apagada), volta para a lista de escolha
     if (songFilters.artist && !f.artists.some((a) => a.key === songFilters.artist)) songFilters.artist = '';
-    if (songFilters.style && !f.styles.some((a) => a.key === songFilters.style)) songFilters.style = '';
-    const list = filterSongs(data.songs, songFilters).sort(cmp[songFilters.sort] ?? cmp.t);
-    const active = songFilters.artist || songFilters.style;
-    filterBox.open = filterBox.open || !!active;
-    filterBox.querySelector('summary').textContent = active ? 'Filtros (ativos)' : 'Filtros';
-    filters.replaceChildren(
-      facetSelect('Todos os artistas', f.artists, songFilters.artist, (v) => { songFilters.artist = v; draw(); }),
-      facetSelect('Todos os estilos', f.styles, songFilters.style, (v) => { songFilters.style = v; draw(); }),
-      active ? h('button', { class: 'btn sm', onclick: () => { Object.assign(songFilters, { artist: '', style: '' }); draw(); } }, 'Limpar filtros') : null);
-    sortBar.replaceChildren(...SORTS.map(([k, label]) => h('button', { type: 'button', class: songFilters.sort === k ? 'on' : '', 'aria-pressed': songFilters.sort === k, onclick: () => { songFilters.sort = k; draw(); } }, label)));
-    const MODES = [['songs', 'Músicas'], ['artists', 'Artistas']];
-    modeBar.replaceChildren(...MODES.map(([k, label]) => h('button', { type: 'button', class: songFilters.mode === k ? 'on' : '', 'aria-pressed': songFilters.mode === k, onclick: () => { songFilters.mode = k; if (k === 'songs') songFilters.artist = ''; draw(); } }, label)));
-    sortBar.hidden = songFilters.mode === 'artists' && !songFilters.artist;
+    if (songFilters.tone != null && songFilters.tone !== '' && !data.songs.some((s) => (s.tone || '-') === songFilters.tone)) songFilters.tone = '';
+    modeBar.replaceChildren(...MODES.map(([k, label]) => h('button', { type: 'button', class: songFilters.mode === k ? 'on' : '', 'aria-pressed': songFilters.mode === k, onclick: () => { songFilters.mode = k; songFilters.artist = ''; songFilters.tone = ''; draw(); } }, label)));
+    const t = songFilters.term.trim().toLowerCase();
+    const pickRows = (rows, onPick, noun) => {
+      count.textContent = data.songs.length ? `${rows.length} ${noun}` : '';
+      listEl.replaceChildren(...rows.map((r) => h('button', { type: 'button', class: 'li li-main artist-row', onclick: () => onPick(r) }, h('b', {}, r.name), h('small', {}, `${r.count} música${r.count > 1 ? 's' : ''}`))));
+      if (!rows.length) listEl.append(h('p', { class: 'empty' }, `Nenhum resultado em ${noun}.`));
+    };
+    // "Artistas" e "Tom": a propria aba ja abre a escolha; tocar num item mostra as musicas dele
     if (songFilters.mode === 'artists' && !songFilters.artist) {
-      // "Artistas": a propria aba ja abre a escolha do artista; tocar num artista mostra as musicas dele
-      const t = songFilters.term.trim().toLowerCase();
-      const arts = f.artists.filter((a) => !t || a.name.toLowerCase().includes(t));
-      count.textContent = data.songs.length ? `${arts.length} artistas` : '';
-      listEl.replaceChildren(...arts.map((a) => h('button', { type: 'button', class: 'li li-main artist-row', onclick: () => { songFilters.artist = a.key; draw(); } }, h('b', {}, a.name), h('small', {}, `${a.count} música${a.count > 1 ? 's' : ''}`))));
-      if (!arts.length) listEl.append(h('p', { class: 'empty' }, 'Nenhum artista encontrado.'));
+      pickRows(f.artists.filter((a) => !t || a.name.toLowerCase().includes(t)), (a) => { songFilters.artist = a.key; draw(); }, 'artistas');
       return;
     }
-    const backRow = songFilters.mode === 'artists' && songFilters.artist
-      ? h('button', { type: 'button', class: 'btn sm', onclick: () => { songFilters.artist = ''; draw(); } }, '‹ Todos os artistas') : null;
+    if (songFilters.mode === 'tones' && !songFilters.tone) {
+      const counts = new Map();
+      data.songs.forEach((s) => { const k = s.tone || '-'; counts.set(k, (counts.get(k) ?? 0) + 1); });
+      const rows = [...counts].map(([key, n]) => ({ key, name: toneLabel(key === '-' ? '' : key), count: n }))
+        .filter((r) => !t || r.name.toLowerCase().includes(t)).sort((a, b) => collator.compare(a.key === '-' ? '~' : a.key, b.key === '-' ? '~' : b.key));
+      pickRows(rows, (r) => { songFilters.tone = r.key; draw(); }, 'tons');
+      return;
+    }
+    let list = filterSongs(data.songs, { term: songFilters.term, artist: songFilters.artist, style: '' });
+    if (songFilters.mode === 'tones') list = list.filter((s) => (s.tone || '-') === songFilters.tone);
+    list.sort(byTitleCmp);
+    const chosen = songFilters.mode === 'artists' ? 'artistas' : songFilters.mode === 'tones' ? 'tons' : '';
+    const backRow = chosen ? h('button', { type: 'button', class: 'btn sm', onclick: () => { songFilters.artist = ''; songFilters.tone = ''; draw(); } }, `‹ Todos os ${chosen}`) : null;
     count.textContent = data.songs.length ? `${list.length} de ${data.songs.length} músicas` : '';
     listEl.replaceChildren(backRow, ...list.map((s) => h('div', { class: 'li' },
       h('a', { class: 'li-main', href: `#/palco?song=${s.id}` },
         h('b', {}, s.title),
         h('small', {}, [s.artist, s.tone && `Tom ${s.tone}`, s.style].filter(Boolean).join(' · ') || 'Sem artista')),
       h('a', { class: 'ib', href: `#/song/${s.id}`, 'aria-label': `Editar ${s.title}`, title: 'Editar' }, icon('edit', 20)))));
-    if (!list.length) listEl.append(h('p', { class: 'empty' }, data.songs.length ? 'Nada encontrado com esses filtros.' : 'Nenhuma música ainda. Toque em + para cadastrar ou importar a primeira.'));
+    if (!list.length) listEl.append(h('p', { class: 'empty' }, data.songs.length ? 'Nada encontrado.' : 'Nenhuma música ainda. Toque em + para cadastrar ou importar a primeira.'));
   };
   q.addEventListener('input', () => { songFilters.term = q.value; draw(); });
   draw();
@@ -460,7 +460,7 @@ route(/^#\/songs$/, async (view) => {
         h('a', { class: 'btn pri big grow', href: '#/song/new' }, icon('edit', 18), ' Nova música'),
         h('button', { class: 'btn big grow', type: 'button', onclick: () => importDialog() }, icon('download', 18), ' Importar cifra')),
       h('div', { class: 'searchbar' }, icon('search', 20), q),
-      modeBar, sortBar, filterBox, count, listEl),
+      modeBar, count, listEl),
     fab([['edit', 'Nova música', () => { location.hash = '#/song/new'; }], ['download', 'Importar cifra', () => importDialog()]]));
 });
 
