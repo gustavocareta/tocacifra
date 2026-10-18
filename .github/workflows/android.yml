@@ -36,7 +36,13 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      # o runner ja traz o Android SDK; aqui so aceitamos as licencas e garantimos a versao usada pelo Capacitor 8
+      - name: Preparar o Android SDK
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          ls "$ANDROID_HOME" || true
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0" > /dev/null
 
       - name: Instalar dependencias
         run: npm ci
