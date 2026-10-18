@@ -5,6 +5,9 @@ export const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, 
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
+/** Texto da cifra sem os marcadores {refrao}/{voz2}, para busca na letra. */
+const lyrics = (body) => String(body ?? '').replace(/^\s*\{\/?(refrao|voz2)\}\s*$/gim, ' ');
+
 /** Valores distintos de um campo (agrupando variacoes de maiusculas/acentos), com contagem, em ordem alfabetica. */
 function facet(songs, field) {
   const map = new Map();
@@ -23,7 +26,7 @@ export const facets = (songs) => ({ artists: facet(songs, 'artist'), styles: fac
 
 /**
  * Filtra musicas. `artist`, `style` e `tone` sao chaves (norm) vindas de `facets`; vazio = todos.
- * `term` busca no titulo e no artista, sem acento.
+ * `term` busca no titulo, no artista e na letra, sem acento.
  */
 export function filterSongs(songs, { term = '', artist = '', style = '', tone = '' } = {}) {
   const t = norm(term);
@@ -31,5 +34,5 @@ export function filterSongs(songs, { term = '', artist = '', style = '', tone = 
     (!artist || norm(s.artist) === artist) &&
     (!style || norm(s.style) === style) &&
     (!tone || norm(s.tone) === tone) &&
-    (!t || norm(`${s.title} ${s.artist}`).includes(t)));
+    (!t || norm(`${s.title} ${s.artist} ${lyrics(s.body)}`).includes(t)));
 }

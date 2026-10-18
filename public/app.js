@@ -31,6 +31,43 @@ function h(tag, attrs = {}, ...kids) {
   return el;
 }
 
+/* ---- icones simples (desenhados aqui; herdam a cor do texto) ---- */
+const ICONS = {
+  back: 'M15 5l-7 7 7 7',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  sliders: 'M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1',
+  more: 'M12 6v.01M12 12v.01M12 18v.01',
+  plus: 'M12 5v14M5 12h14',
+  minus: 'M5 12h14',
+  search: 'M11 4a7 7 0 100 14 7 7 0 000-14zM20 20l-4-4',
+  chevron: 'M9 5l7 7-7 7',
+  prev: 'M14 5l-7 7 7 7',
+  next: 'M10 5l7 7-7 7',
+  note: 'M9 18V6l10-2v12M9 18a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM19 16a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z',
+  list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+  tuner: 'M8 4v7a4 4 0 008 0V4M12 15v5M9 20h6',
+  download: 'M12 4v11M7 11l5 5 5-5M5 20h14',
+  logout: 'M10 5H6a1 1 0 00-1 1v12a1 1 0 001 1h4M15 8l4 4-4 4M19 12H9',
+  play: 'M8 5l11 7-11 7z',
+  edit: 'M5 19l1-4L16 5l3 3L9 18zM14 7l3 3',
+  chords: 'M5 4v16M10 4v16M15 4v16M20 4v16M5 9h15M5 15h15',
+  audio: 'M4 10v4h4l5 4V6L8 10zM16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11',
+  fullscreen: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  help: 'M9 9a3 3 0 116 0c0 2-3 2-3 4M12 17v.01',
+  close: 'M6 6l12 12M18 6L6 18',
+  scroll: 'M12 5v14M7 14l5 5 5-5',
+};
+/** Icone SVG; `size` em px. */
+function icon(name, size = 22) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round'); svg.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS(ns, 'path'); p.setAttribute('d', ICONS[name] ?? ''); svg.append(p);
+  return svg;
+}
+
 let toastTimer;
 function toast(msg) {
   const t = $('#toast');
@@ -209,22 +246,43 @@ function logout() {
   location.hash = '#/login';
 }
 
+/** Titulo e "voltar" de cada tela (barra superior, como no ToqueFacil). */
+function pageMeta(hash) {
+  const h0 = hash || '#/menu';
+  const rules = [
+    [/^#\/menu/, { title: '', back: null }],
+    [/^#\/songs/, { title: 'Minhas músicas', back: '#/menu' }],
+    [/^#\/song\/new/, { title: 'Nova música', back: '#/songs' }],
+    [/^#\/song\//, { title: 'Editar música', back: '#/songs' }],
+    [/^#\/setlists/, { title: 'Repertórios', back: '#/menu' }],
+    [/^#\/repertorio\//, { title: 'Repertório', back: '#/setlists' }],
+    [/^#\/setlist\/new/, { title: 'Novo repertório', back: '#/setlists' }],
+    [/^#\/setlist\//, { title: 'Editar repertório', back: '#/setlists' }],
+    [/^#\/afinador/, { title: 'Afinador', back: '#/menu' }],
+    [/^#\/config/, { title: 'Configurações', back: '#/menu' }],
+    [/^#\/login|^#\/nova-senha/, { title: '', back: null }],
+  ];
+  return (rules.find(([re]) => re.test(h0)) ?? [null, { title: '', back: '#/menu' }])[1];
+}
+
 function renderNav() {
   const nav = $('#nav');
   nav.replaceChildren();
-  nav.append(h('a', { class: 'brand', href: '#/songs' }, 'TocaCifra'));
+  const meta = pageMeta(location.hash);
+  const logged = !!store.token;
   // botao rapido claro/escuro: mostra o tema atual e alterna ao clicar
   const dark = resolveTheme(readTheme(), systemPrefersDark()) === 'dark';
-  const themeBtn = h('button', { class: 'btn theme', title: dark ? 'Mudar para o modo claro' : 'Mudar para o modo escuro', 'aria-label': dark ? 'Mudar para o modo claro' : 'Mudar para o modo escuro', onclick: () => { toggleTheme(); renderNav(); } }, dark ? '🌙' : '☀️');
-  if (!store.token) { nav.append(h('span', { class: 'sp' }), themeBtn); return; }
-  const cur = location.hash.split('/')[1] ?? '';
-  const tab = (href, label, n, key) => h('a', { class: 'tab' + (cur.startsWith(key) ? ' on' : ''), href }, label, ' ', h('span', { class: 'chip' }, n));
-  nav.append(tab('#/songs', 'Musicas', data.songs.length, 'song'), tab('#/setlists', 'Repertorios', data.setlists.length, 'setlist'), h('a', { class: 'tab' + (cur === 'afinador' ? ' on' : ''), href: '#/afinador' }, 'Afinador'), h('a', { class: 'tab' + (cur === 'config' ? ' on' : ''), href: '#/config' }, 'Configurações'));
+  const themeBtn = h('button', { class: 'ib', title: dark ? 'Mudar para o modo claro' : 'Mudar para o modo escuro', 'aria-label': dark ? 'Mudar para o modo claro' : 'Mudar para o modo escuro', onclick: () => { toggleTheme(); renderNav(); } }, dark ? '🌙' : '☀️');
+  nav.append(logged && meta.back
+    ? h('a', { class: 'ib', href: meta.back, 'aria-label': 'Voltar' }, icon('back'))
+    : h('a', { class: 'brand', href: logged ? '#/menu' : '#/login' }, h('img', { src: 'icon-192.png', alt: '', width: 28, height: 28 }), 'TocaCifra'));
+  if (meta.title) nav.append(h('h1', { class: 'title' }, meta.title));
   nav.append(h('span', { class: 'sp' }));
+  if (!logged) { nav.append(themeBtn); return; }
   const pending = store.queue.length;
   if (pending) nav.append(h('span', { class: 'chip', title: 'Edicoes feitas sem internet, aguardando sincronizar' }, `${pending} pendente${pending > 1 ? 's' : ''}`));
   if (!data.online) nav.append(h('span', { class: 'chip off' }, 'offline'));
-  nav.append(h('span', { class: 'muted', style: 'color:#cfd8e1;margin:0 10px' }, store.user?.nick ?? ''), h('button', { class: 'btn sm', onclick: logout }, 'Sair'), themeBtn);
+  nav.append(themeBtn, h('a', { class: 'ib', href: '#/config', 'aria-label': 'Configurações', title: 'Configurações' }, icon('sliders')));
 }
 
 const routes = [];
@@ -235,11 +293,13 @@ async function navigate() {
   stageCleanup?.();
   stageCleanup = null;
   runSettingsCleanups(); // para de escutar o pedal se a tela de configuracao foi deixada
-  const hash = location.hash || '#/songs';
+  const hash = location.hash || '#/menu';
   if (!store.token && !hash.startsWith('#/login') && !hash.startsWith('#/nova-senha')) { location.hash = '#/login'; return; }
   const tmp = /^#\/(song|setlist)\/(-\d+)/.exec(hash);
   if (tmp && resolvedIds[tmp[2]]) { location.replace(`#/${tmp[1]}/${resolvedIds[tmp[2]]}`); return; }
   const view = $('#view');
+  view.classList.toggle('wide', /^#\/(song|setlist|config|palco)/.test(hash)); // editor e configuracoes usam mais largura no computador
+  window.scrollTo(0, 0);
   for (const [re, fn] of routes) {
     const m = re.exec(hash);
     if (m) {
@@ -248,7 +308,7 @@ async function navigate() {
       return;
     }
   }
-  location.hash = '#/songs';
+  location.hash = '#/menu';
 }
 
 /* ---------------- login / cadastro ---------------- */
@@ -269,7 +329,7 @@ route(/^#\/login/, (view) => {
       if (r.needsConfirmation) { err.textContent = ''; toast('Conta criada! Abra o e-mail que enviamos, confirme e depois entre.'); return; }
       store.token = r.token ?? 'sb'; store.user = r.user; // 'sb' = marcador de "logado" (a sessao real fica com o Supabase)
       await refresh();
-      location.hash = '#/songs';
+      location.hash = '#/menu';
     } catch (ex) { err.textContent = ex.message; } finally { submit.disabled = false; }
   } },
   title, nickField, h('div', { class: 'field' }, h('label', {}, 'E-mail'), email), h('div', { class: 'field' }, h('label', {}, 'Senha'), pass), err,
@@ -299,15 +359,36 @@ route(/^#\/nova-senha$/, (view) => {
       store.token = store.token ?? 'sb'; store.user = r.user ?? store.user;
       toast('Senha alterada!');
       await refresh();
-      location.hash = '#/songs';
+      location.hash = '#/menu';
     } catch (ex) { err.textContent = ex.message; } finally { submit.disabled = false; }
   } },
   h('h1', {}, 'Nova senha'), h('p', { class: 'muted' }, 'Escolha uma senha nova para a sua conta.'),
   h('div', { class: 'field' }, h('label', {}, 'Nova senha (minimo 6 caracteres)'), pass), h('div', { class: 'field' }, h('label', {}, 'Repita a nova senha'), pass2), err, h('div', { class: 'row' }, submit)));
 });
 
+/* ---------------- menu inicial (como no ToqueFacil: botoes grandes) ---------------- */
+route(/^#\/menu$/, async (view) => {
+  const btn = (ic, label, sub, onclick, href) => h(href ? 'a' : 'button', { class: 'menu-btn', href, onclick, type: href ? undefined : 'button' },
+    h('span', { class: 'mi' }, icon(ic, 26)), h('span', { class: 'mt' }, h('b', {}, label), sub ? h('small', {}, sub) : null), h('span', { class: 'mc' }, icon('chevron', 20)));
+  const downloaded = data.at ? `Baixado em ${new Date(data.at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : 'Ainda não baixado';
+  const status = h('p', { class: 'muted menu-status' }, downloaded);
+  view.replaceChildren(
+    h('div', { class: 'menu' },
+      h('div', { class: 'menu-head' }, h('div', { class: 'hello' }, `Olá, ${store.user?.nick || 'músico'}`), status),
+      btn('download', 'Conteúdo', 'Baixar músicas e repertórios para usar sem internet', async () => {
+        status.textContent = 'Baixando…';
+        await refresh();
+        status.textContent = data.online ? `Pronto: ${data.songs.length} músicas e ${data.setlists.length} repertórios salvos neste aparelho.` : 'Sem internet: usando o conteúdo já baixado.';
+      }),
+      btn('note', 'Músicas', `${data.songs.length} neste aparelho`, null, '#/songs'),
+      btn('list', 'Repertórios', `${data.setlists.length} neste aparelho`, null, '#/setlists'),
+      btn('tuner', 'Afinador', 'Violão, cavaco, ukulele e baixo', null, '#/afinador'),
+      btn('logout', 'Sair', 'Encerrar a sessão neste aparelho', () => { if (confirm('Sair da conta neste aparelho?')) logout(); })));
+  refresh().then(() => { if (location.hash === '#/menu') { $('.menu-btn:nth-of-type(2) small')?.replaceChildren(`${data.songs.length} neste aparelho`); } });
+});
+
 /* ---------------- lista de musicas ---------------- */
-const songFilters = { term: '', artist: '', style: '' }; // lembrados ao voltar para a lista
+const songFilters = { term: '', artist: '', style: '', sort: 't' }; // lembrados ao voltar para a lista
 
 /** <select> de filtro com "Todos ..." e as opcoes de `items` ({key,name,count}). */
 function facetSelect(allLabel, items, current, onPick) {
@@ -318,43 +399,58 @@ function facetSelect(allLabel, items, current, onPick) {
 
 route(/^#\/songs$/, async (view) => {
   await refresh();
-  const q = h('input', { type: 'text', placeholder: 'Buscar por titulo ou artista', class: 'grow', value: songFilters.term });
-  const tbody = h('tbody');
-  const filters = h('div', { class: 'row' });
-  const count = h('p', { class: 'muted' });
+  const q = h('input', { type: 'search', placeholder: 'Buscar por título, letra ou artista', value: songFilters.term, enterkeyhint: 'search', autocomplete: 'off' });
+  const filters = h('div', { class: 'filters-body' });
+  const listEl = h('div', { class: 'list' });
+  const count = h('p', { class: 'muted count' });
+  const sortBar = h('div', { class: 'seg', role: 'group', 'aria-label': 'Ordenar por' });
+  const filterBox = h('details', { class: 'filters' }, h('summary', {}, 'Filtros'), filters);
+  const SORTS = [['t', 'Título'], ['a', 'Artista'], ['o', 'Tom']];
+  const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+  const cmp = { t: (a, b) => collator.compare(a.title, b.title), a: (a, b) => collator.compare(a.artist || '~', b.artist || '~') || collator.compare(a.title, b.title), o: (a, b) => collator.compare(a.tone || '~', b.tone || '~') || collator.compare(a.title, b.title) };
+
   const draw = () => {
     const f = facets(data.songs);
     // se o artista/estilo escolhido nao existe mais (ex.: a ultima musica dele foi apagada), volta para "todos"
     if (songFilters.artist && !f.artists.some((a) => a.key === songFilters.artist)) songFilters.artist = '';
     if (songFilters.style && !f.styles.some((a) => a.key === songFilters.style)) songFilters.style = '';
-    const list = filterSongs(data.songs, songFilters);
-    const active = songFilters.term || songFilters.artist || songFilters.style;
+    const list = filterSongs(data.songs, songFilters).sort(cmp[songFilters.sort] ?? cmp.t);
+    const active = songFilters.artist || songFilters.style;
+    filterBox.open = filterBox.open || !!active;
+    filterBox.querySelector('summary').textContent = active ? 'Filtros (ativos)' : 'Filtros';
     filters.replaceChildren(
       facetSelect('Todos os artistas', f.artists, songFilters.artist, (v) => { songFilters.artist = v; draw(); }),
       facetSelect('Todos os estilos', f.styles, songFilters.style, (v) => { songFilters.style = v; draw(); }),
-      active ? h('button', { class: 'btn sm', onclick: () => { Object.assign(songFilters, { term: '', artist: '', style: '' }); q.value = ''; draw(); } }, 'Limpar filtros') : null);
-    count.textContent = data.songs.length ? `${list.length} de ${data.songs.length} musicas` : '';
-    tbody.replaceChildren(...list.map((s) => h('tr', {},
-      h('td', {}, h('a', { href: `#/song/${s.id}` }, s.title)),
-      h('td', {}, s.artist ? h('a', { href: '#', title: `Ver so as musicas de ${s.artist}`, onclick: (e) => { e.preventDefault(); songFilters.artist = facets([s]).artists[0].key; draw(); } }, s.artist) : ''),
-      h('td', {}, s.tone), h('td', {}, s.style),
-      h('td', { class: 'act' }, h('a', { class: 'btn sm pri', href: `#/palco?song=${s.id}` }, 'Tocar')))));
-    if (!list.length) tbody.append(h('tr', {}, h('td', { colspan: 5, class: 'muted' }, data.songs.length ? 'Nada encontrado com esses filtros.' : 'Nenhuma musica ainda. Cadastre ou importe a primeira!')));
+      active ? h('button', { class: 'btn sm', onclick: () => { Object.assign(songFilters, { artist: '', style: '' }); draw(); } }, 'Limpar filtros') : null);
+    sortBar.replaceChildren(...SORTS.map(([k, label]) => h('button', { type: 'button', class: songFilters.sort === k ? 'on' : '', 'aria-pressed': songFilters.sort === k, onclick: () => { songFilters.sort = k; draw(); } }, label)));
+    count.textContent = data.songs.length ? `${list.length} de ${data.songs.length} músicas` : '';
+    listEl.replaceChildren(...list.map((s) => h('div', { class: 'li' },
+      h('a', { class: 'li-main', href: `#/palco?song=${s.id}` },
+        h('b', {}, s.title),
+        h('small', {}, [s.artist, s.tone && `Tom ${s.tone}`, s.style].filter(Boolean).join(' · ') || 'Sem artista')),
+      h('a', { class: 'ib', href: `#/song/${s.id}`, 'aria-label': `Editar ${s.title}`, title: 'Editar' }, icon('edit', 20)))));
+    if (!list.length) listEl.append(h('p', { class: 'empty' }, data.songs.length ? 'Nada encontrado com esses filtros.' : 'Nenhuma música ainda. Toque em + para cadastrar ou importar a primeira.'));
   };
   q.addEventListener('input', () => { songFilters.term = q.value; draw(); });
   draw();
-  const dl = h('button', { class: 'btn', onclick: async () => {
-    await refresh();
-    toast(data.online ? `${data.songs.length} musicas e ${data.setlists.length} repertorios salvos para uso offline.` : 'Sem internet: usando o conteudo ja baixado.');
-  } }, 'Baixar conteudo offline');
   view.replaceChildren(
-    h('h1', {}, 'Minhas musicas'),
-    h('div', { class: 'row' }, q, h('a', { class: 'btn ok', href: '#/song/new' }, 'Nova'), h('button', { class: 'btn', onclick: () => importDialog() }, 'Importar'), dl),
-    filters, count,
-    data.at ? h('p', { class: 'muted' }, `Conteudo baixado em ${new Date(data.at).toLocaleString('pt-BR')}.`) : null,
-    h('div', { class: 'card' }, h('table', {}, h('thead', {}, h('tr', {}, ['Titulo', 'Artista', 'Tom', 'Estilo', ''].map((t) => h('th', {}, t)))), tbody)));
+    h('div', { class: 'page' },
+      h('div', { class: 'searchbar' }, icon('search', 20), q),
+      sortBar, filterBox, count, listEl),
+    fab([['edit', 'Nova música', () => { location.hash = '#/song/new'; }], ['download', 'Importar cifra', () => importDialog()]]));
 });
 
+/** Botao flutuante "+" que abre um menu de acoes (folha inferior). */
+function fab(actions) {
+  const btn = h('button', { class: 'fab', type: 'button', 'aria-label': 'Adicionar', onclick: () => {
+    const close = () => sheet.remove();
+    const sheet = h('div', { class: 'dlg-bg sheet-bg', onclick: (e) => e.target === sheet && close() },
+      h('div', { class: 'sheet' }, actions.map(([ic, label, fn]) => h('button', { class: 'sheet-item', type: 'button', onclick: () => { close(); fn(); } }, icon(ic, 22), label)),
+        h('button', { class: 'sheet-item cancel', type: 'button', onclick: close }, 'Cancelar')));
+    document.body.append(sheet);
+  } }, icon('plus', 28));
+  return btn;
+}
 /* ---------------- importar ---------------- */
 function importDialog() {
   const url = h('input', { type: 'text', placeholder: 'https://... (link da pagina da cifra)' });
@@ -523,44 +619,87 @@ route(/^#\/song\/(new|-?\d+)(\?prefill=1)?$/, async (view, id, prefill) => {
   };
   if (!isNew && !isTmp(song.id)) drawAudio(song.audioName);
 
-  view.replaceChildren(
-    h('h1', {}, isNew ? 'Nova musica' : 'Editar musica'),
-    h('div', { class: 'row' },
-      h('button', { class: 'btn pri', onclick: save }, 'Salvar'),
-      isNew ? null : h('a', { class: 'btn ok', href: `#/palco?song=${song.id}` }, 'Tocar'),
-      h('button', { class: 'btn', onclick: () => importDialog() }, 'Importar'),
-      h('span', { class: 'grow' }),
-      isNew ? null : h('button', { class: 'btn bad', onclick: del }, 'Excluir')),
+  // ---- layout: no celular, abas (Letra / Previa / Acordes / Audio); no computador, letra e previa lado a lado ----
+  const hasAudio = !isNew && !isTmp(song.id);
+  const TABS = [['letra', 'Letra'], ['previa', 'Prévia'], ['acordes', 'Acordes'], ...(hasAudio ? [['audio', 'Áudio']] : [])];
+  const editor = h('div', { class: 'editor', 'data-tab': 'letra' });
+  const tabBar = h('div', { class: 'seg tabs', role: 'tablist' });
+  const setTab = (name) => { editor.dataset.tab = name; [...tabBar.children].forEach((b) => b.classList.toggle('on', b.dataset.tab === name)); if (name === 'previa') sync(); };
+  TABS.forEach(([k, label]) => tabBar.append(h('button', { type: 'button', role: 'tab', 'data-tab': k, class: k === 'letra' ? 'on' : '', onclick: () => setTab(k) }, label)));
+
+  const moreSheet = () => {
+    const close = () => bg.remove();
+    const bg = h('div', { class: 'dlg-bg sheet-bg', onclick: (e) => e.target === bg && close() }, h('div', { class: 'sheet' },
+      h('button', { class: 'sheet-item', type: 'button', onclick: () => { close(); importDialog(); } }, icon('download', 22), 'Importar cifra (colar texto)'),
+      isNew ? null : h('button', { class: 'sheet-item danger', type: 'button', onclick: () => { close(); del(); } }, icon('close', 22), 'Excluir música'),
+      h('button', { class: 'sheet-item cancel', type: 'button', onclick: close }, 'Cancelar')));
+    document.body.append(bg);
+  };
+
+  editor.append(
     err,
-    h('div', { class: 'card' },
-      h('div', { class: 'row' }, field('Titulo', f.title, 'grow'), field('Artista', f.artist, 'grow')),
-      h('div', { class: 'row' }, field('Tom', f.tone), field('Capotraste (casa)', f.capo), field('Estilo', f.style, 'grow'),
-        h('button', { class: 'btn sm', onclick: () => shiftTone(-1) }, '− Tom'), h('button', { class: 'btn sm', onclick: () => shiftTone(1) }, '+ Tom'),
-        h('button', { class: 'btn sm', onclick: () => { f.tone.value = guessKey(f.body.value); } }, 'Detectar tom')),
-      h('div', { class: 'row' }, h('span', { class: 'muted' }, 'Selecione as linhas e marque:'),
-        h('button', { class: 'btn sm mk-refrao', title: 'Marca ou desmarca as linhas selecionadas como refrão (outra cor)', onclick: () => markSel('refrao') }, SECTIONS.refrao),
-        h('button', { class: 'btn sm mk-voz2', title: 'Marca ou desmarca as linhas selecionadas como 2ª voz', onclick: () => markSel('voz2') }, SECTIONS.voz2),
-        h('span', { class: 'muted' }, 'As marcas {refrao} aparecem só no editor; a cor é escolhida em Configurações.'))),
-    h('div', { class: 'grid2' }, field('Letra cifrada', f.body), field('Pre-visualizacao', preview)),
-    h('div', { class: 'card' }, h('div', { class: 'row' }, h('strong', {}, 'Acordes da musica'), instSel, h('label', { style: 'display:flex;gap:4px;align-items:center;margin:0' }, leftChk, 'Canhoto')), diag),
-    isNew || isTmp(song.id) ? null : audioBox,
-    h('p', { class: 'muted' }, 'Dica: acordes e letra ficam em linhas diferentes; as linhas de acordes sao destacadas automaticamente.'));
+    h('div', { class: 'card fields' },
+      field('Título', f.title, 'f-title'), field('Artista', f.artist, 'f-artist'),
+      field('Tom', f.tone, 'f-tone'), field('Capotraste', f.capo, 'f-capo'), field('Estilo', f.style, 'f-style')),
+    h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Ferramentas da cifra' },
+      h('button', { class: 'btn sm', type: 'button', onclick: () => shiftTone(-1) }, '− Tom'),
+      h('button', { class: 'btn sm', type: 'button', onclick: () => shiftTone(1) }, '+ Tom'),
+      h('button', { class: 'btn sm', type: 'button', onclick: () => { f.tone.value = guessKey(f.body.value); } }, 'Detectar tom'),
+      h('button', { class: 'btn sm mk-refrao', type: 'button', title: 'Selecione as linhas e toque: marca ou desmarca como refrão (outra cor)', onclick: () => markSel('refrao') }, SECTIONS.refrao),
+      h('button', { class: 'btn sm mk-voz2', type: 'button', title: 'Selecione as linhas e toque: marca ou desmarca como 2ª voz', onclick: () => markSel('voz2') }, SECTIONS.voz2)),
+    tabBar,
+    h('div', { class: 'editor-grid' }, h('div', { class: 'pane pane-letra' }, field('Letra cifrada', f.body), h('p', { class: 'muted hint' }, 'Acordes em uma linha, letra na de baixo. Selecione linhas e use Refrão ou 2ª Voz para dar outra cor.')),
+      h('div', { class: 'pane pane-previa' }, field('Pré-visualização', preview))),
+    h('div', { class: 'pane pane-acordes card' }, h('div', { class: 'row' }, h('strong', {}, 'Acordes da música'), instSel, h('label', { class: 'inline' }, leftChk, 'Canhoto')), diag),
+    hasAudio ? h('div', { class: 'pane pane-audio' }, audioBox) : null);
+
+  view.replaceChildren(
+    editor,
+    h('div', { class: 'actionbar' },
+      h('button', { class: 'btn pri big grow', type: 'button', onclick: save }, 'Salvar'),
+      isNew ? null : h('a', { class: 'btn ok big', href: `#/palco?song=${song.id}` }, icon('play', 18), ' Tocar'),
+      h('button', { class: 'ib more', type: 'button', 'aria-label': 'Mais ações', title: 'Mais ações', onclick: moreSheet }, icon('more', 24))));
 });
 
 /* ---------------- repertorios ---------------- */
 route(/^#\/setlists$/, async (view) => {
   await refresh();
+  const items = data.setlists.map((s) => {
+    const n = s.items.filter((i) => i.songId != null).length;
+    return h('div', { class: 'li' },
+      h('a', { class: 'li-main', href: `#/repertorio/${s.id}` }, h('b', {}, s.title), h('small', {}, [`${n} música${n === 1 ? '' : 's'}`, s.style].filter(Boolean).join(' · '))),
+      h('a', { class: 'ib', href: `#/setlist/${s.id}`, 'aria-label': `Editar ${s.title}`, title: 'Editar' }, icon('edit', 20)));
+  });
   view.replaceChildren(
-    h('h1', {}, 'Meus repertorios'),
-    h('div', { class: 'row' }, h('a', { class: 'btn ok', href: '#/setlist/new' }, 'Novo')),
-    h('div', { class: 'card' }, h('table', {},
-      h('thead', {}, h('tr', {}, ['Titulo', 'Estilo', 'Musicas', ''].map((t) => h('th', {}, t)))),
-      h('tbody', {}, data.setlists.length ? data.setlists.map((s) => h('tr', {},
-        h('td', {}, h('a', { href: `#/setlist/${s.id}` }, s.title)), h('td', {}, s.style), h('td', {}, s.items.filter((i) => i.songId != null).length),
-        h('td', { class: 'act' }, h('a', { class: 'btn sm pri', href: `#/palco?set=${s.id}` }, 'Tocar'))))
-        : h('tr', {}, h('td', { colspan: 4, class: 'muted' }, 'Nenhum repertorio ainda.'))))));
+    h('div', { class: 'page' }, h('p', { class: 'muted count' }, data.setlists.length ? `${data.setlists.length} repertório${data.setlists.length === 1 ? '' : 's'}` : ''),
+      h('div', { class: 'list' }, items.length ? items : h('p', { class: 'empty' }, 'Nenhum repertório ainda. Toque em + para criar o primeiro.'))),
+    fab([['list', 'Novo repertório', () => { location.hash = '#/setlist/new'; }]]));
 });
 
+/** Detalhe do repertorio (como no ToqueFacil): lista numerada; tocar uma musica abre o painel nela. */
+route(/^#\/repertorio\/(-?\d+)$/, async (view, id) => {
+  if (!data.at) await refresh();
+  const set = setlistById(Number(id));
+  if (!set) throw new Error('Repertorio nao encontrado.');
+  let n = 0;
+  const rows = set.items.map((it) => {
+    if (it.songId == null) return h('div', { class: 'moment' }, it.label);
+    const s = songById(it.songId);
+    if (!s) return null;
+    const idx = n++;
+    return h('a', { class: 'li li-main track', href: `#/palco?set=${set.id}&i=${idx}` },
+      h('span', { class: 'no' }, idx + 1),
+      h('span', { class: 'tt' }, h('b', {}, s.title), h('small', {}, [s.artist, s.tone && `Tom ${s.tone}`].filter(Boolean).join(' · '))),
+      icon('play', 20));
+  }).filter(Boolean);
+  view.replaceChildren(
+    h('div', { class: 'page' },
+      h('div', { class: 'detail-head' }, h('h2', {}, set.title), h('p', { class: 'muted' }, [`${n} música${n === 1 ? '' : 's'}`, set.style].filter(Boolean).join(' · '))),
+      h('div', { class: 'row' },
+        n ? h('a', { class: 'btn pri big', href: `#/palco?set=${set.id}` }, icon('play', 18), ' Tocar do início') : null,
+        h('a', { class: 'btn big', href: `#/setlist/${set.id}` }, icon('edit', 18), ' Editar')),
+      h('div', { class: 'list tracks' }, rows.length ? rows : h('p', { class: 'empty' }, 'Este repertório está vazio. Toque em Editar para adicionar músicas.'))));
+});
 route(/^#\/setlist\/(new|-?\d+)$/, async (view, id) => {
   if (!data.at) await refresh();
   const isNew = id === 'new';
@@ -920,6 +1059,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     ttl.textContent = song.title;
     const toneNow = song.tone ? transposeChord(song.tone.replace(/m$/, ''), steps) + (song.tone.endsWith('m') ? 'm' : '') : '';
     sub.textContent = [song.artist, toneNow && `Tom: ${toneNow}`, song.capo ? `Capo na ${song.capo}ª casa` : ''].filter(Boolean).join('  ·  ');
+    toneBtn.textContent = toneNow || '♪';
     mom.textContent = moment ?? ''; mom.hidden = !moment;
     applyLayout();
     renderCifra(cols, text);
@@ -964,7 +1104,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     document.addEventListener('keydown', onEsc, true);
     document.body.append(bg);
   }
-  function exit() { location.hash = qs.has('set') ? `#/setlist/${qs.get('set')}` : '#/songs'; }
+  function exit() { location.hash = qs.has('set') ? `#/repertorio/${qs.get('set')}` : '#/songs'; }
 
   function openSearch() {
     if (searching) return; searching = true;
@@ -1040,15 +1180,63 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
 
   // toque: terco direito avanca, terco esquerdo volta (no meio nao faz nada, para poder selecionar/rolar)
   body.addEventListener('click', (e) => { const x = e.clientX / window.innerWidth; if (x > 0.66) page(1); else if (x < 0.33) page(-1); });
-  const btn = (label, fn, title) => h('button', { onclick: fn, title }, label);
+  // ---- menu de opcoes (folha) e instrucoes, como no ToqueFacil ----
+  function openMenu() {
+    if (searching) return; searching = true;
+    const close = () => { searching = false; bg.remove(); };
+    const item = (ic, label, fn, keep = false) => h('button', { class: 'sheet-item', type: 'button', onclick: () => { if (!keep) close(); fn(); } }, icon(ic, 22), label);
+    const fontRow = h('div', { class: 'sheet-item font-row' }, icon('note', 22), 'Tamanho da letra',
+      h('span', { class: 'sp' }), h('button', { class: 'rb sm', type: 'button', 'aria-label': 'Diminuir a letra', onclick: () => font(-2) }, 'A−'),
+      h('button', { class: 'rb sm', type: 'button', 'aria-label': 'Aumentar a letra', onclick: () => font(2) }, 'A+'));
+    const bg = h('div', { class: 'dlg-bg sheet-bg', style: 'z-index:60', onclick: (e) => e.target === bg && close() },
+      h('div', { class: 'sheet dark' },
+        item('search', 'Buscar música (F4)', () => { searching = false; openSearch(); }),
+        item('chords', dgPanel.hidden ? 'Mostrar acordes desenhados' : 'Ocultar acordes desenhados', () => dgBtn.click()),
+        item('audio', 'Áudio da música', () => toggleAudio()),
+        isPages() ? null : item('scroll', auto ? 'Parar rolagem automática' : 'Rolagem automática', () => toggleAuto()),
+        fontRow,
+        item('tuner', 'Afinador', () => { location.hash = '#/afinador'; }),
+        item('sliders', 'Configurações do painel (F2)', () => { searching = false; openConfig(); }),
+        item('fullscreen', 'Tela cheia', () => toggleFullscreen()),
+        item('help', 'Instruções do painel', () => { searching = false; openHelp(true); }),
+        item('logout', 'Sair do painel (Esc)', () => exit()),
+        h('button', { class: 'sheet-item cancel', type: 'button', onclick: close }, 'Fechar')));
+    document.body.append(bg);
+  }
+
+  function openHelp(force = false) {
+    let seen = false;
+    try { seen = localStorage.getItem('tc_help') === '1'; } catch { /* ignore */ }
+    if (seen && !force) return;
+    if (searching) return; searching = true;
+    const never = h('input', { type: 'checkbox' });
+    const close = () => { try { if (never.checked) localStorage.setItem('tc_help', '1'); } catch { /* ignore */ } searching = false; bg.remove(); };
+    const row = (k, t) => h('li', {}, h('b', {}, k), ' ', t);
+    const bg = h('div', { class: 'dlg-bg', style: 'z-index:60', onclick: (e) => e.target === bg && close() },
+      h('div', { class: 'dlg help' }, h('h2', {}, 'Instruções do painel'),
+        h('ul', {}, row('Lado direito da tela', '→ próxima página'), row('Lado esquerdo da tela', '→ página anterior'),
+          row('≡', 'menu de opções (busca, acordes, áudio, afinador, configurações)'), row('− e +', 'abaixam e sobem o tom (toque no tom para voltar ao original)'),
+          row('◀ e ▶', 'página anterior e próxima'), row('Pedal Bluetooth', 'ensine os botões em Configurações → Pedal')),
+        h('label', { class: 'inline' }, never, 'Não mostrar mais esta janela'),
+        h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn pri big', type: 'button', onclick: close }, 'Fechar'))));
+    document.body.append(bg);
+  }
+
+  const rb = (ic, label, fn, cls = '') => h('button', { class: `rb ${cls}`.trim(), type: 'button', onclick: fn, 'aria-label': label, title: label }, icon(ic, 24));
+  const toneBtn = h('button', { class: 'rb tone', type: 'button', 'aria-label': 'Tom atual (toque para voltar ao original)', title: 'Tom atual — toque para voltar ao original', onclick: () => { steps = 0; draw(true); } }, '♪');
+  const clock = h('span', { class: 'clock' });
+  const tick = () => { clock.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
+  tick(); const clockTimer = setInterval(tick, 20000);
+  const prevCleanup = stageCleanup;
+  stageCleanup = () => { clearInterval(clockTimer); prevCleanup?.(); };
   const stage = h('div', { class: 'stage' },
     h('div', { class: 'top' }, mom, ttl, sub, cnt), body, dgPanel, audioPanel,
-    h('div', { class: 'bar' }, h('span', { class: 'brand' }, 'TocaCifra'),
-      btn('← Anterior', () => page(-1)), btn('Próxima →', () => page(1)), btn('F4 Busca', openSearch),
-      btn('− Tom', () => tone(-1)), btn('★ Tom', () => { steps = 0; draw(true); }, 'Voltar ao tom original'), btn('+ Tom', () => tone(1)),
-      btn('A−', () => font(-2)), btn('A+', () => font(2)), dgBtn, audioBtn, autoBtn, btn('⚙ Config', openConfig, 'Configuracoes do painel (F2)'), btn('⛶ Tela cheia', toggleFullscreen), btn('Esc Sair', exit)));
+    h('div', { class: 'bar' },
+      rb('menu', 'Menu de opções', openMenu), rb('minus', 'Descer o tom', () => tone(-1)), toneBtn, rb('plus', 'Subir o tom', () => tone(1)),
+      h('span', { class: 'sp' }), rb('prev', 'Página anterior', () => page(-1), 'nav'), rb('next', 'Próxima página', () => page(1), 'nav'), clock));
   view.replaceChildren(stage);
   draw();
+  setTimeout(() => openHelp(false), 400); // primeira vez: mostra as instrucoes
 });
 
 /* ---------------- afinador ---------------- */

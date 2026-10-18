@@ -39,8 +39,9 @@ function fakeClient({ results = {}, session = { user: { id: 'u-1', email: 'a@b.c
     resetPasswordForEmail: async (e, o) => { calls.push(['auth', 'reset', e, o]); return { error: null }; },
     updateUser: async (u) => { calls.push(['auth', 'update', Object.keys(u)]); return { error: null }; },
   };
+  const functions = { invoke: async (name, opts) => { calls.push(['functions', name, opts]); return results.invoke ?? { data: {}, error: null }; } };
   return {
-    calls, auth, storage,
+    calls, auth, storage, functions,
     from: (t) => builder(`from.${t}`),
     rpc: (fn, args) => { calls.push(['rpc', fn, args]); return builder(`rpc.${fn}`); },
   };
@@ -180,11 +181,34 @@ test('eventos de autenticacao chegam ao app', async () => {
   assert.deepEqual(seen, ['recovery', 'lost']);
 });
 
-test('importar por link nao existe nesta versao; texto funciona no navegador', async () => {
+test('importar texto colado funciona no navegador', async () => {
   const { b } = await make();
-  assert.equal(b.capabilities.importUrl, false);
-  await assert.rejects(b.importContent({ url: 'https://exemplo.com/x' }), /copie o texto/i);
+  assert.equal(b.capabilities.importUrl, true);
   const r = await b.importContent({ text: 'Am   G\nlinha\n\n\n\nF   C\noutra' });
   assert.equal(r.tone, 'Am');
   assert.ok(!r.body.includes('\n\n\n'));
+});
+
+test('importar por link: chama a funcao e normaliza o resultado', async () => {
+  const { b, client } = await make({ results: { invoke: { data: { title: 'Teste', artist: 'Ana', body: 'Am   G\nlinha inventada\n\n\n\nF   C\noutra' }, error: null } } });
+  const r = await b.importContent({ url: 'https://exemplo.com/x' });
+  assert.deepEqual(client.calls.find((c) => c[0] === 'functions'), ['functions', 'import-cifra', { body: { url: 'https://exemplo.com/x' } }]);
+  assert.equal(r.title, 'Teste'); assert.equal(r.artist, 'Ana'); assert.equal(r.tone, 'Am');
+  assert.ok(!r.body.includes('\n\n\n'));
+});
+
+test('importar por link: erros da funcao viram mensagens claras', async () => {
+  const withError = (status, body, name = 'FunctionsHttpError') => make({ results: { invoke: { data: null, error: { name, message: 'x', context: { status, json: async () => body } } } } });
+  let t = await withError(400, { error: 'Endereco nao permitido.' });
+  await assert.rejects(t.b.importContent({ url: 'http://127.0.0.1' }), /Endereco nao permitido/);
+  t = await withError(422, { error: 'Nao encontrei uma cifra nessa pagina.' });
+  await assert.rejects(t.b.importContent({ url: 'https://e.com' }), /Nao encontrei uma cifra/);
+  t = await withError(404, {});
+  await assert.rejects(t.b.importContent({ url: 'https://e.com' }), /ainda nao foi ativada/);
+  t = await withError(401, { error: 'x' });
+  let lost = 0; t.b.onAuthLost = () => lost++;
+  await assert.rejects(t.b.importContent({ url: 'https://e.com' }), /Sessao expirada/);
+  assert.equal(lost, 1);
+  t = await withError(0, null, 'FunctionsFetchError'); // sem internet: entra no fluxo offline
+  await assert.rejects(t.b.importContent({ url: 'https://e.com' }), OfflineError);
 });

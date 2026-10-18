@@ -33,5 +33,9 @@ test('filtros combinam e a busca ignora acento', () => {
   assert.deepEqual(filterSongs(songs, { tone: 'g' }).map((s) => s.id), [1, 3]);
   assert.deepEqual(filterSongs(songs, { term: 'RAMALHO' }).map((s) => s.id), [1, 2]);
   assert.deepEqual(filterSongs(songs, { artist: 'inexistente' }), []);
+  // busca tambem na letra (e ignora os marcadores de refrao)
+  const withBody = [{ id: 9, title: 'X', artist: 'Y', style: '', tone: '', body: 'G  D\nTrecho da letra inventada\n{refrao}\nOutro verso' }];
+  assert.equal(filterSongs(withBody, { term: 'LETRA inventada' }).length, 1);
+  assert.equal(filterSongs(withBody, { term: 'refrao' }).length, 0);
   assert.equal(filterSongs(songs, {}).length, 5);
 });

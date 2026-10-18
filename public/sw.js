@@ -1,6 +1,6 @@
 // Service worker: guarda o "casco" do app para abrir sem internet. Os dados ficam no localStorage (ver app.js).
 // Caminhos relativos: o app funciona na raiz (servidor local) e em subpasta (GitHub Pages: /tocacifra/).
-const CACHE = 'tocacifra-shell-v6';
+const CACHE = 'tocacifra-shell-v7';
 const SHELL = [
   './', 'app.js', 'chords.js', 'diagrams.js', 'tuner.js', 'pedal.js', 'filters.js', 'theme.js', 'errors.js', 'importer-core.js',
   'backend.js', 'backend-node.js', 'backend-supabase.js', 'config.js', 'vendor/supabase.js',

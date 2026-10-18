@@ -8,7 +8,7 @@ const MAX_AUDIO_BYTES = 30 * 1024 * 1024;
 /** Falha de rede (sem internet / servidor inacessivel), e nao um erro de negocio. */
 export function isNetworkError(e) {
   if (!e) return false;
-  if (e.name === 'AuthRetryableFetchError' || e instanceof TypeError) return true;
+  if (e.name === 'AuthRetryableFetchError' || e.name === 'FunctionsFetchError' || e instanceof TypeError) return true;
   const msg = String(e.message ?? e);
   return /failed to fetch|networkerror|network request failed|load failed|fetch failed/i.test(msg);
 }
@@ -47,7 +47,7 @@ export async function createSupabaseBackend(cfg, deps = {}) {
 
   const self = {
     kind: 'supabase',
-    capabilities: { importUrl: false, passwordReset: true },
+    capabilities: { importUrl: true, passwordReset: true },
     onAuthLost() {},
     onPasswordRecovery() {},
   };
@@ -177,9 +177,22 @@ export async function createSupabaseBackend(cfg, deps = {}) {
       return URL.createObjectURL(res.data);
     },
 
+    /** Importa uma cifra: por link (funcao "import-cifra" do Supabase baixa a pagina) ou por texto colado. */
     async importContent({ url, text }) {
-      if (url) throw new Error('Importar por link nao esta disponivel nesta versao. Abra a cifra no site, copie o texto e cole aqui.');
-      return importFromText(text ?? '');
+      if (!url) return importFromText(text ?? '');
+      let res;
+      try { res = await sb.functions.invoke('import-cifra', { body: { url } }); } catch (e) { fail(e, 'Nao foi possivel importar o link.'); }
+      if (res.error) {
+        if (isNetworkError(res.error)) throw new OfflineError('Sem conexao com o servidor.');
+        const status = res.error.context?.status;
+        let msg = '';
+        try { msg = (await res.error.context.json())?.error ?? ''; } catch { /* sem corpo */ }
+        if (status === 404) throw new Error('A importacao por link ainda nao foi ativada neste projeto. Copie o texto da cifra e cole aqui.');
+        if (status === 401) { self.onAuthLost(); throw new Error('Sessao expirada. Entre novamente.'); }
+        throw new Error(msg || 'Nao foi possivel importar o link. Copie o texto da cifra e cole aqui.');
+      }
+      const d = res.data ?? {};
+      return importFromText(d.body ?? '', { title: d.title, artist: d.artist });
     },
   });
   return self;

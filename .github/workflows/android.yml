@@ -1,0 +1,97 @@
+name: Gerar o aplicativo Android (APK)
+
+# Monta o APK do TocaCifra (a pasta public/ dentro de um app Android, com Capacitor) e publica em
+#   https://github.com/gustavocareta/tocacifra/releases/tag/android-latest
+# Roda sozinho quando o site muda (public/) e pode ser rodado a mao em Actions > "Gerar o aplicativo Android (APK)".
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'capacitor.config.json'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Criar o projeto Android (nao fica no repositorio; e gerado a cada vez)
+        run: npx cap add android
+
+      - name: Nome, permissoes e icone do app
+        run: |
+          set -euo pipefail
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          # microfone (afinador) e tela ligada (painel de palco)
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />#' "$MANIFEST"
+          grep -q RECORD_AUDIO "$MANIFEST"
+          # icones do launcher (a partir dos PNGs do site)
+          RES=android/app/src/main/res
+          for d in "mdpi 48 108" "hdpi 72 162" "xhdpi 96 216" "xxhdpi 144 324" "xxxhdpi 192 432"; do
+            set -- $d
+            mkdir -p "$RES/mipmap-$1"
+            convert public/icon-512.png -resize "$2x$2" "$RES/mipmap-$1/ic_launcher.png"
+            convert public/icon-512.png -resize "$2x$2" "$RES/mipmap-$1/ic_launcher_round.png"
+            convert public/icon-maskable-512.png -resize "$3x$3" "$RES/mipmap-$1/ic_launcher_foreground.png"
+          done
+          mkdir -p "$RES/values"
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#1F2933</color>\n</resources>\n' > "$RES/values/ic_launcher_background.xml"
+
+      - name: Copiar o site para dentro do app
+        run: npx cap sync android
+
+      # a chave de assinatura "debug" e guardada em cache para que as atualizacoes do APK sejam instalaveis por cima
+      - name: Chave de assinatura (cache)
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: tocacifra-debug-keystore-v1
+
+      - name: Compilar o APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Guardar o APK como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: TocaCifra-android
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Publicar na pagina de Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp android/app/build/outputs/apk/debug/app-debug.apk TocaCifra.apk
+          gh release delete android-latest --yes --cleanup-tag >/dev/null 2>&1 || true
+          gh release create android-latest TocaCifra.apk \
+            --title "TocaCifra para Android" \
+            --notes "Aplicativo Android (APK) do TocaCifra, gerado automaticamente. Baixe o arquivo TocaCifra.apk no celular e instale (permita 'instalar apps desconhecidos' para o navegador). Se ja tiver uma versao instalada, instale por cima; se o Android recusar, desinstale a antiga antes. Seus dados ficam na sua conta." \
+            --latest=false
