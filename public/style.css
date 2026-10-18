@@ -297,9 +297,10 @@ main.wide { max-width: 1100px; }
 
 /* lista de artistas (aba Artistas) */
 button.artist-row{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:2px;}
-
-/* botao de sair da musica (celular nao tem Esc) */
-.stage .top .exit{display:inline-flex;align-items:center;gap:4px;background:#0b2a1c;color:#46d68a;border:2px solid #1e7a4c;border-radius:22px;padding:6px 14px 6px 8px;font:inherit;font-weight:700;cursor:pointer;min-height:40px;}
-.stage .top .exit:active{background:#2fa866;color:#fff;}
-.stage .body .blk{max-width:100%;}
-
+/* painel: titulo sozinho em destaque no topo; botao de sair fica na barra de baixo */
+.stage .top .ttl{flex:0 0 100%;font-size:22px;line-height:1.2;overflow-wrap:anywhere;}
+.stage .bar .rb.exit{background:#2a1010;border-color:#8a2a2a;color:#ff8a8a;}
+.stage .bar .rb.exit:active{background:#a33;color:#fff;}
+.install .qr{display:block;margin:8px auto 12px;background:#fff;padding:8px;border-radius:12px;max-width:100%;height:auto;}
+.install ol{padding-left:20px;line-height:1.5;}
+@media (max-width:420px){.stage .bar{gap:5px;padding-left:8px;padding-right:8px;}.stage .bar .rb{width:42px;height:42px;}.stage .bar .rb.tone{min-width:42px;padding:0 8px;}.stage .bar .rb.nav{width:50px;height:50px;}}

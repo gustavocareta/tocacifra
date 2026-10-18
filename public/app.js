@@ -260,6 +260,7 @@ function pageMeta(hash) {
     [/^#\/setlist\/new/, { title: 'Novo repertório', back: '#/setlists' }],
     [/^#\/setlist\//, { title: 'Editar repertório', back: '#/setlists' }],
     [/^#\/afinador/, { title: 'Afinador', back: '#/menu' }],
+    [/^#\/instalar/, { title: 'Instalar no celular', back: '#/menu' }],
     [/^#\/config/, { title: 'Configurações', back: '#/menu' }],
     [/^#\/login|^#\/nova-senha/, { title: '', back: null }],
   ];
@@ -295,7 +296,7 @@ async function navigate() {
   stageCleanup = null;
   runSettingsCleanups(); // para de escutar o pedal se a tela de configuracao foi deixada
   const hash = location.hash || '#/menu';
-  if (!store.token && !hash.startsWith('#/login') && !hash.startsWith('#/nova-senha')) { location.hash = '#/login'; return; }
+  if (!store.token && !hash.startsWith('#/login') && !hash.startsWith('#/nova-senha') && !hash.startsWith('#/instalar')) { location.hash = '#/login'; return; }
   const tmp = /^#\/(song|setlist)\/(-\d+)/.exec(hash);
   if (tmp && resolvedIds[tmp[2]]) { location.replace(`#/${tmp[1]}/${resolvedIds[tmp[2]]}`); return; }
   const view = $('#view');
@@ -340,7 +341,8 @@ route(/^#\/login/, (view) => {
     const to = email.value.trim() || prompt('Digite o e-mail da sua conta:');
     if (!to) return;
     try { await backend.requestPasswordReset(to); toast('Se o e-mail estiver cadastrado, enviamos um link para criar uma nova senha.'); } catch (ex) { err.textContent = ex.message; }
-  } }, 'Esqueci a minha senha')) : null);
+  } }, 'Esqueci a minha senha')) : null,
+  isNativeApp() ? null : h('p', {}, h('a', { href: '#/instalar' }, 'Instalar o app no celular (QR code)')));
   view.replaceChildren(form);
 });
 
@@ -385,12 +387,32 @@ route(/^#\/menu$/, async (view) => {
       btn('plus', 'Importar cifra', 'Colar o texto ou o link de uma cifra', () => importDialog()),
       btn('list', 'Repertórios', h('span', { class: 'n-sets' }, `${data.setlists.length} neste aparelho`), null, '#/setlists'),
       btn('tuner', 'Afinador', 'Violão, cavaco, ukulele e baixo', null, '#/afinador'),
+      isNativeApp() ? null : btn('download', 'Instalar no celular', 'QR code para Android e iPhone', null, '#/instalar'),
       btn('logout', 'Sair', 'Encerrar a sessão neste aparelho', () => { if (confirm('Sair da conta neste aparelho?')) logout(); })));
   refresh().then(() => {
     if (location.hash !== '#/menu') return;
     $('.n-songs')?.replaceChildren(`${data.songs.length} neste aparelho`);
     $('.n-sets')?.replaceChildren(`${data.setlists.length} neste aparelho`);
   });
+});
+
+/* ---------------- instalar no celular (QR codes) ---------------- */
+const isNativeApp = () => !!(window.Capacitor?.isNativePlatform?.());
+
+route(/^#\/instalar$/, (view) => {
+  const qr = (src, alt) => h('img', { src, alt, width: 220, height: 220, class: 'qr' });
+  view.replaceChildren(h('div', { class: 'page install' },
+    store.token ? null : h('p', {}, h('a', { href: '#/login' }, '‹ Voltar para entrar')),
+    h('h1', {}, 'Instalar no celular'),
+    h('div', { class: 'card' }, h('h2', {}, 'Android (aplicativo)'),
+      qr('qr-android.png', 'QR code para baixar o aplicativo Android'),
+      h('ol', {}, h('li', {}, 'Aponte a câmera do celular para o QR code.'), h('li', {}, 'Toque em ', h('b', {}, 'TocaCifra.apk'), ' para baixar.'),
+        h('li', {}, 'Abra o arquivo e toque em ', h('b', {}, 'Instalar'), ' (permita "instalar desta fonte" se o Android pedir).')),
+      h('a', { class: 'btn pri', href: 'https://github.com/gustavocareta/tocacifra/releases/tag/android-latest', target: '_blank', rel: 'noopener' }, 'Baixar o APK')),
+    h('div', { class: 'card' }, h('h2', {}, 'iPhone / iPad'),
+      qr('qr-site.png', 'QR code para abrir o TocaCifra no Safari'),
+      h('ol', {}, h('li', {}, 'Aponte a câmera para o QR code e abra no ', h('b', {}, 'Safari'), '.'),
+        h('li', {}, 'Toque em ', h('b', {}, 'Compartilhar'), ' → ', h('b', {}, 'Adicionar à Tela de Início'), '.')))));
 });
 
 /* ---------------- lista de musicas ---------------- */
@@ -1299,8 +1321,9 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
   const prevCleanup = stageCleanup;
   stageCleanup = () => { clearInterval(clockTimer); prevCleanup?.(); };
   const stage = h('div', { class: 'stage' },
-    h('div', { class: 'top' }, h('button', { class: 'exit', type: 'button', 'aria-label': 'Sair da música e voltar', title: 'Sair da música', onclick: exit }, icon('back', 22), qs.has('set') ? 'Repertório' : 'Músicas'), mom, ttl, sub, cnt), body, dgPanel, audioPanel,
+    h('div', { class: 'top' }, mom, ttl, sub, cnt), body, dgPanel, audioPanel,
     h('div', { class: 'bar' },
+      rb('back', qs.has('set') ? 'Sair da música e voltar ao repertório' : 'Sair da música e voltar às músicas', exit, 'exit'),
       rb('menu', 'Menu de opções', openMenu), rb('minus', 'Descer o tom', () => tone(-1)), toneBtn, rb('plus', 'Subir o tom', () => tone(1)),
       h('span', { class: 'sp' }), rb('prev', 'Página anterior', () => page(-1), 'nav'), rb('next', 'Próxima página', () => page(1), 'nav'), clock));
   view.replaceChildren(stage);
