@@ -1301,6 +1301,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
   let lastNative = { key: '', t: 0 };
   const onKey = (e) => {
     if (!e.native && e.key === lastNative.key && Date.now() - lastNative.t < 250) return; // o mesmo toque ja chegou pelo Android
+    if (helpClose) helpClose(); // instrucoes abertas: o pedal as fecha e ja executa a acao
     if (searching || activeListeners > 0 || e.target.closest?.('input,textarea,select')) return;
     const id = keyBinding(e);
     if (id && runBinding(id, e.repeat)) { e.preventDefault(); return; }
@@ -1377,13 +1378,16 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     document.body.append(bg);
   }
 
+  let helpClose = null;
   function openHelp(force = false) {
     let seen = false;
     try { seen = localStorage.getItem('tc_help') === '1'; } catch { /* ignore */ }
     if (seen && !force) return;
     if (searching) return; searching = true;
     const never = h('input', { type: 'checkbox' });
-    const close = () => { try { if (never.checked) localStorage.setItem('tc_help', '1'); } catch { /* ignore */ } searching = false; bg.remove(); };
+    // a janela de instrucoes aparece so na primeira vez; qualquer tecla do pedal a fecha (senao ela segura o pedal e ele "nao faz nada")
+    const close = () => { try { if (never.checked || !force) localStorage.setItem('tc_help', '1'); } catch { /* ignore */ } searching = false; helpClose = null; bg.remove(); };
+    helpClose = close;
     const row = (k, t) => h('li', {}, h('b', {}, k), ' ', t);
     const bg = h('div', { class: 'dlg-bg', style: 'z-index:60', onclick: (e) => e.target === bg && close() },
       h('div', { class: 'dlg help' }, h('h2', {}, 'Instruções do painel'),
@@ -1409,6 +1413,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
       rb('menu', 'Menu de opções', openMenu), rb('minus', 'Descer o tom', () => tone(-1)), toneBtn, rb('plus', 'Subir o tom', () => tone(1)),
       h('span', { class: 'sp' }), rb('prev', 'Página anterior', () => page(-1), 'nav'), rb('next', 'Próxima página', () => page(1), 'nav'), clock));
   view.replaceChildren(stage);
+  activeListeners = 0; // garantia: nenhum "aprender/testar pedal" esquecido pode deixar o painel surdo
   stage.tabIndex = -1; // o painel fica com o foco do teclado: sem isso o WebView do Android pode nao entregar as teclas do pedal
   stage.style.outline = 'none';
   stage.focus({ preventScroll: true });
