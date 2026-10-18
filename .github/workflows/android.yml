@@ -50,6 +50,9 @@ jobs:
       - name: Criar o projeto Android (nao fica no repositorio; e gerado a cada vez)
         run: npx cap add android
 
+      - name: Instalar o ImageMagick (para redimensionar os icones)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+
       - name: Permissoes e icone do app
         run: node scripts/android-prepare.mjs
 
