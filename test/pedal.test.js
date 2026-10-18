@@ -112,3 +112,9 @@ test('makeThrottle barra toque duplo e libera depois', () => {
   t += 200; assert.equal(ok('next'), true);
   assert.equal(makeThrottle(0, () => t)('x') && makeThrottle(0, () => t)('x'), true);
 });
+
+import { test as t2 } from 'node:test';
+t2('keyBinding usa o numero da tecla quando o Android nao informa key/code', () => {
+  assert.equal(keyBinding({ key: 'Unidentified', code: '', keyCode: 39 }), 'k:KeyCode39');
+  assert.equal(labelFor('k:KeyCode39'), 'Tecla nº 39');
+});

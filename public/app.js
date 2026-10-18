@@ -1296,9 +1296,16 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     // atalhos fixos de teclado (nao dependem do pedal)
     const scrollStep = (d) => (isPages() ? page(d) : body.scrollBy({ top: d * 60 }));
     const fixed = { ArrowDown: () => scrollStep(1), ArrowUp: () => scrollStep(-1), '+': () => tone(1), '=': () => tone(1), '-': () => tone(-1), '*': () => { steps = 0; draw(true); }, F2: openConfig, Escape: exit };
+    // setas e Page Up/Down viram pagina mesmo que os botoes padrao tenham sido apagados em Configuracoes (pedal ligado)
+    const turn = { ArrowRight: 1, PageDown: 1, ArrowLeft: -1, PageUp: -1 };
     if (fixed[e.key]) { e.preventDefault(); fixed[e.key](); }
+    else if (pedalCfg().enabled && turn[e.key]) { e.preventDefault(); if (!e.repeat && allow('turn')) page(turn[e.key]); }
+    else if (pedalCfg().enabled && id && e.key.length > 1 && !e.repeat && !/^(Tab|Shift|Control|Alt|Meta|F\d+)$/.test(e.key) && allow('unknown')) {
+      toast(`Botão do pedal não reconhecido: ${labelFor(id)}. Ligue-o em Configurações → Pedal → Aprender.`); // ajuda a descobrir o que o pedal envia
+    }
   };
-  document.addEventListener('keydown', onKey);
+  // captura na janela: chega mesmo se algum elemento da tela segurar o foco (WebView do Android)
+  window.addEventListener('keydown', onKey, true);
   let unsubMidi = null, disposed = false;
   const onMidi = (d) => { const id = midiBinding(d); if (id && activeListeners === 0) runBinding(id); };
   async function syncMidi() {
@@ -1329,7 +1336,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
   };
   const onResize = () => { draw(true); };
   window.addEventListener('resize', onResize);
-  stageCleanup = () => { disposed = true; unsubMidi?.(); wakeLock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisible); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); clearInterval(autoTimer); stopAudio(); };
+  stageCleanup = () => { disposed = true; unsubMidi?.(); wakeLock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisible); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); window.removeEventListener('keydown', onKey, true); window.removeEventListener('resize', onResize); clearInterval(autoTimer); stopAudio(); };
 
   // toque: terco direito avanca, terco esquerdo volta (no meio nao faz nada, para poder selecionar/rolar)
   body.addEventListener('click', (e) => { const x = e.clientX / window.innerWidth; if (x > 0.66) page(1); else if (x < 0.33) page(-1); });
@@ -1389,6 +1396,9 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
       rb('menu', 'Menu de opções', openMenu), rb('minus', 'Descer o tom', () => tone(-1)), toneBtn, rb('plus', 'Subir o tom', () => tone(1)),
       h('span', { class: 'sp' }), rb('prev', 'Página anterior', () => page(-1), 'nav'), rb('next', 'Próxima página', () => page(1), 'nav'), clock));
   view.replaceChildren(stage);
+  stage.tabIndex = -1; // o painel fica com o foco do teclado: sem isso o WebView do Android pode nao entregar as teclas do pedal
+  stage.style.outline = 'none';
+  stage.focus({ preventScroll: true });
   draw();
   setTimeout(() => openHelp(false), 400); // primeira vez: mostra as instrucoes
 });

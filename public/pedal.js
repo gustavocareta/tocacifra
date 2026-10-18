@@ -42,8 +42,9 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'C
 
 /** Identificador estavel de uma tecla: usa `code` (posicao fisica, igual em qualquer idioma) com Ctrl/Alt/Meta. Shift e ignorado ("+" = Shift+"="). */
 export function keyBinding(e) {
-  if (MODIFIER_KEYS.has(e.key) && (!e.code || /^(Shift|Control|Alt|Meta|Caps|Num|Scroll)/.test(e.code))) return null;
-  const base = e.code && e.code !== 'Unidentified' ? e.code : e.key;
+  if (e.key !== 'Unidentified' && MODIFIER_KEYS.has(e.key) && (!e.code || /^(Shift|Control|Alt|Meta|Caps|Num|Scroll)/.test(e.code))) return null;
+  let base = e.code && e.code !== 'Unidentified' ? e.code : (e.key && e.key !== 'Unidentified' ? e.key : '');
+  if (!base && e.keyCode) base = `KeyCode${e.keyCode}`; // Android/WebView: alguns pedais so informam o numero da tecla
   if (!base || MODIFIER_KEYS.has(base)) return null;
   const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.metaKey && 'Meta'].filter(Boolean);
   return `k:${[...mods, base].join('+')}`;
@@ -75,7 +76,7 @@ export function labelFor(binding) {
     const [t, n] = val.split(':');
     return `MIDI ${t === 'note' ? 'nota' : t === 'cc' ? 'controle' : 'programa'} ${n}`;
   }
-  return val.split('+').map((p) => KEY_LABELS[p] ?? p.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad(\d)$/, 'Num $1').replace(/^F(\d+)$/, 'F$1')).join(' + ');
+  return val.split('+').map((p) => KEY_LABELS[p] ?? p.replace(/^KeyCode(\d+)$/, 'Tecla nº $1').replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad(\d)$/, 'Num $1').replace(/^F(\d+)$/, 'F$1')).join(' + ');
 }
 
 /** Qual acao esta ligada a esse botao (ou null). */
