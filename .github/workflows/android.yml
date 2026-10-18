@@ -50,24 +50,8 @@ jobs:
       - name: Criar o projeto Android (nao fica no repositorio; e gerado a cada vez)
         run: npx cap add android
 
-      - name: Nome, permissoes e icone do app
-        run: |
-          set -euo pipefail
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          # microfone (afinador) e tela ligada (painel de palco)
-          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />#' "$MANIFEST"
-          grep -q RECORD_AUDIO "$MANIFEST"
-          # icones do launcher (a partir dos PNGs do site)
-          RES=android/app/src/main/res
-          for d in "mdpi 48 108" "hdpi 72 162" "xhdpi 96 216" "xxhdpi 144 324" "xxxhdpi 192 432"; do
-            set -- $d
-            mkdir -p "$RES/mipmap-$1"
-            convert public/icon-512.png -resize "$2x$2" "$RES/mipmap-$1/ic_launcher.png"
-            convert public/icon-512.png -resize "$2x$2" "$RES/mipmap-$1/ic_launcher_round.png"
-            convert public/icon-maskable-512.png -resize "$3x$3" "$RES/mipmap-$1/ic_launcher_foreground.png"
-          done
-          mkdir -p "$RES/values"
-          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#1F2933</color>\n</resources>\n' > "$RES/values/ic_launcher_background.xml"
+      - name: Permissoes e icone do app
+        run: node scripts/android-prepare.mjs
 
       - name: Copiar o site para dentro do app
         run: npx cap sync android
