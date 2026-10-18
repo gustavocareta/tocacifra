@@ -1,4 +1,4 @@
-import { KEYS, SECTIONS, guessKey, isChord, isChordLine, parseLines, toggleSection, transposeBody, transposeChord } from './chords.js';
+import { KEYS, SECTIONS, guessKey, isChord, isChordLine, parseLines, toggleSection, transposeBody, transposeChord, wrapPair } from './chords.js';
 import { facets, filterSongs } from './filters.js';
 import { onSystemThemeChange, readTheme, resolveTheme, saveTheme, systemPrefersDark, toggleTheme } from './theme.js';
 import { ACTIONS, DEFAULT_PEDAL, assignBinding, createMidiHub, keyBinding, labelFor, makeThrottle, midiBinding, normalizePedal, resolveAction } from './pedal.js';
@@ -536,20 +536,28 @@ function renderDiagrams(target, chords) {
 
 /* ---------------- editor de musica ---------------- */
 /** Cada linha de acordes fica junto da letra logo abaixo (um bloco), para nao quebrar entre colunas. */
-function renderCifra(target, body) {
+function renderCifra(target, body, maxChars = 0) {
   const lines = parseLines(body); // marcadores {refrao}/{voz2} somem; cada linha traz a sua secao
   const blocks = [];
   const useSectionColors = store.settings.sectionColors;
   const cls = (l) => `blk${l.section && useSectionColors ? ` sec-${l.section}` : ''}`;
+  // maxChars > 0 (painel): quebra as linhas compridas para caberem na tela, mantendo cada acorde sobre a sua silaba
+  const pushPair = (l, chord, lyric) => {
+    const parts = maxChars > 0 && Math.max(chord.length, lyric.length) > maxChars ? wrapPair(chord, lyric, maxChars) : [{ chord, lyric }];
+    for (const p of parts) {
+      const kids = [];
+      if (p.chord.trim()) kids.push(h('span', { class: 'c' }, p.chord));
+      if (p.chord.trim() && p.lyric.trim()) kids.push('\n');
+      if (p.lyric.trim() || !p.chord.trim()) kids.push(h('span', { class: 'ly' }, p.lyric || ' '));
+      blocks.push(h('div', { class: cls(l) }, ...kids));
+    }
+  };
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     const next = lines[i + 1];
-    if (l.chord && next && !next.chord && next.text.trim()) {
-      blocks.push(h('div', { class: cls(next) }, h('span', { class: 'c' }, l.text), '\n', h('span', { class: 'ly' }, next.text)));
-      i++;
-    } else {
-      blocks.push(h('div', { class: cls(l) }, l.chord ? h('span', { class: 'c' }, l.text) : h('span', { class: 'ly' }, l.text || ' ')));
-    }
+    if (l.chord && next && !next.chord && next.text.trim()) { pushPair(next, l.text, next.text); i++; }
+    else if (l.chord) pushPair(l, l.text, '');
+    else pushPair(l, '', l.text);
   }
   target.replaceChildren(...blocks);
 }
@@ -1073,22 +1081,17 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     if (s.mode === 'pages' && auto) toggleAuto();
   }
 
-  /** Linhas maiores que a coluna invadiriam a pagina vizinha: reduz a fonte (so na tela, sem mexer na configuracao) ate caberem. */
-  function fitFont() {
-    const base = store.fontSize;
-    body.style.fontSize = `${base}px`;
+  /** Quantos caracteres cabem numa linha da coluna com a fonte atual (a letra e monoespacada); o texto e quebrado nesse limite. */
+  function charsPerLine() {
     const cs = getComputedStyle(body);
     const avail = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const n = isPages() ? (parseInt(cols.style.columnCount, 10) || 1) : 1;
     const colW = (avail - GAP * (n - 1)) / n;
-    let max = 0;
-    for (const b of cols.children) max = Math.max(max, b.scrollWidth);
-    cols.classList.remove('wrap');
-    if (colW > 0 && max > colW + 1) {
-      const fit = Math.floor((base * colW / max) * 10) / 10;
-      if (fit >= 9) body.style.fontSize = `${fit}px`;
-      else { body.style.fontSize = `${Math.min(base, 9)}px`; cols.classList.add('wrap'); } // letra minuscula nao serve: mantem 9px e quebra a linha
-    }
+    const probe = h('span', { style: 'position:absolute;visibility:hidden;white-space:pre' }, 'M'.repeat(40));
+    cols.append(probe);
+    const cw = probe.getBoundingClientRect().width / 40;
+    probe.remove();
+    return cw > 0 && colW > 0 ? Math.max(8, Math.floor((colW - 1) / cw)) : 0;
   }
 
   /** Largura de uma "pagina" (todas as colunas visiveis) em modo paginacao. */
@@ -1128,8 +1131,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     toneBtn.textContent = toneNow || '♪';
     mom.textContent = moment ?? ''; mom.hidden = !moment;
     applyLayout();
-    renderCifra(cols, text);
-    fitFont();
+    renderCifra(cols, text, charsPerLine());
     if (!keepScroll) { body.scrollTop = 0; pageNo = 0; }
     setPage(pageNo); // mantem a pagina (limitada ao novo total) quando so o tom/fonte mudam
   }
@@ -1241,7 +1243,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => toast('Tela cheia indisponível neste navegador.'));
     else toast('Tela cheia indisponível neste navegador.');
   };
-  const onResize = () => { applyLayout(); fitFont(); setPage(pageNo); };
+  const onResize = () => { draw(true); };
   window.addEventListener('resize', onResize);
   stageCleanup = () => { disposed = true; unsubMidi?.(); wakeLock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisible); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); clearInterval(autoTimer); stopAudio(); };
 

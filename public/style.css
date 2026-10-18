@@ -303,4 +303,3 @@ button.artist-row{width:100%;text-align:left;font:inherit;color:inherit;cursor:p
 .stage .top .exit:active{background:#2fa866;color:#fff;}
 .stage .body .blk{max-width:100%;}
 
-.stage .cols.wrap, .stage .cols.wrap .blk{white-space:pre-wrap;overflow-wrap:anywhere;}

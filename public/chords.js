@@ -99,6 +99,34 @@ export function parseLines(body) {
   return out;
 }
 
+/**
+ * Quebra um par cifra/letra em varias linhas de no maximo `width` caracteres, sempre em inicio de palavra
+ * e sem partir um acorde ao meio; cada acorde continua sobre a mesma silaba (a coluna e recalculada).
+ * `lyric` pode ser '' (linha so de acordes: quebra entre acordes). Devolve [{ chord, lyric }].
+ */
+export function wrapPair(chord, lyric, width) {
+  const w = Math.max(8, Math.floor(width) || 0);
+  const primary = lyric.trim() ? lyric : chord;
+  const inChord = (b) => { for (const m of chord.matchAll(/\S+/g)) if (m.index < b && b < m.index + m[0].length) return true; return false; };
+  const wordStart = (b) => b > 0 && b < primary.length && primary[b] !== ' ' && primary[b - 1] === ' ';
+  const out = [];
+  let start = 0;
+  const total = Math.max(chord.length, lyric.length);
+  while (start < total) {
+    if (total - start <= w) { out.push({ chord: chord.slice(start).trimEnd(), lyric: lyric.slice(start).trimEnd() }); break; }
+    let b = -1;
+    for (let k = start + w; k > start; k--) if (wordStart(k) && !inChord(k)) { b = k; break; }
+    if (b < 0) { // palavra/acorde maior que a linha: corta no limite sem partir acorde
+      b = start + w;
+      while (b > start + 1 && inChord(b)) b--;
+      if (b <= start) b = start + w;
+    }
+    out.push({ chord: chord.slice(start, b).trimEnd(), lyric: lyric.slice(start, b).trimEnd() });
+    start = b;
+  }
+  return out.length ? out : [{ chord, lyric }];
+}
+
 /** Marca (ou desmarca, se ja marcado) as linhas startLine..endLine (0-based) como secao `type`. */
 export function toggleSection(body, startLine, endLine, type) {
   const lines = body.split('\n');
