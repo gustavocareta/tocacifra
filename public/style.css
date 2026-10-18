@@ -297,3 +297,10 @@ main.wide { max-width: 1100px; }
 
 /* lista de artistas (aba Artistas) */
 button.artist-row{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:2px;}
+
+/* botao de sair da musica (celular nao tem Esc) */
+.stage .top .exit{display:inline-flex;align-items:center;gap:4px;background:#0b2a1c;color:#46d68a;border:2px solid #1e7a4c;border-radius:22px;padding:6px 14px 6px 8px;font:inherit;font-weight:700;cursor:pointer;min-height:40px;}
+.stage .top .exit:active{background:#2fa866;color:#fff;}
+.stage .body .blk{max-width:100%;}
+
+.stage .cols.wrap, .stage .cols.wrap .blk{white-space:pre-wrap;overflow-wrap:anywhere;}

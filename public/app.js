@@ -1073,6 +1073,24 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     if (s.mode === 'pages' && auto) toggleAuto();
   }
 
+  /** Linhas maiores que a coluna invadiriam a pagina vizinha: reduz a fonte (so na tela, sem mexer na configuracao) ate caberem. */
+  function fitFont() {
+    const base = store.fontSize;
+    body.style.fontSize = `${base}px`;
+    const cs = getComputedStyle(body);
+    const avail = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const n = isPages() ? (parseInt(cols.style.columnCount, 10) || 1) : 1;
+    const colW = (avail - GAP * (n - 1)) / n;
+    let max = 0;
+    for (const b of cols.children) max = Math.max(max, b.scrollWidth);
+    cols.classList.remove('wrap');
+    if (colW > 0 && max > colW + 1) {
+      const fit = Math.floor((base * colW / max) * 10) / 10;
+      if (fit >= 9) body.style.fontSize = `${fit}px`;
+      else { body.style.fontSize = `${Math.min(base, 9)}px`; cols.classList.add('wrap'); } // letra minuscula nao serve: mantem 9px e quebra a linha
+    }
+  }
+
   /** Largura de uma "pagina" (todas as colunas visiveis) em modo paginacao. */
   const pageStep = () => {
     const cs = getComputedStyle(body);
@@ -1111,6 +1129,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     mom.textContent = moment ?? ''; mom.hidden = !moment;
     applyLayout();
     renderCifra(cols, text);
+    fitFont();
     if (!keepScroll) { body.scrollTop = 0; pageNo = 0; }
     setPage(pageNo); // mantem a pagina (limitada ao novo total) quando so o tom/fonte mudam
   }
@@ -1222,7 +1241,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
     else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => toast('Tela cheia indisponível neste navegador.'));
     else toast('Tela cheia indisponível neste navegador.');
   };
-  const onResize = () => { applyLayout(); setPage(pageNo); };
+  const onResize = () => { applyLayout(); fitFont(); setPage(pageNo); };
   window.addEventListener('resize', onResize);
   stageCleanup = () => { disposed = true; unsubMidi?.(); wakeLock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisible); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); clearInterval(autoTimer); stopAudio(); };
 
@@ -1247,7 +1266,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
         item('sliders', 'Configurações do painel (F2)', () => { searching = false; openConfig(); }),
         item('fullscreen', 'Tela cheia', () => toggleFullscreen()),
         item('help', 'Instruções do painel', () => { searching = false; openHelp(true); }),
-        item('logout', 'Sair do painel (Esc)', () => exit()),
+        item('logout', 'Sair da música (voltar)', () => exit()),
         h('button', { class: 'sheet-item cancel', type: 'button', onclick: close }, 'Fechar')));
     document.body.append(bg);
   }
@@ -1278,7 +1297,7 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
   const prevCleanup = stageCleanup;
   stageCleanup = () => { clearInterval(clockTimer); prevCleanup?.(); };
   const stage = h('div', { class: 'stage' },
-    h('div', { class: 'top' }, mom, ttl, sub, cnt), body, dgPanel, audioPanel,
+    h('div', { class: 'top' }, h('button', { class: 'exit', type: 'button', 'aria-label': 'Sair da música e voltar', title: 'Sair da música', onclick: exit }, icon('back', 22), qs.has('set') ? 'Repertório' : 'Músicas'), mom, ttl, sub, cnt), body, dgPanel, audioPanel,
     h('div', { class: 'bar' },
       rb('menu', 'Menu de opções', openMenu), rb('minus', 'Descer o tom', () => tone(-1)), toneBtn, rb('plus', 'Subir o tom', () => tone(1)),
       h('span', { class: 'sp' }), rb('prev', 'Página anterior', () => page(-1), 'nav'), rb('next', 'Próxima página', () => page(1), 'nav'), clock));
