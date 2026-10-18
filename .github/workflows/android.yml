@@ -10,6 +10,10 @@ on:
       - 'public/**'
       - 'capacitor.config.json'
       - '.github/workflows/android.yml'
+      - 'scripts/android-prepare.mjs'
+  # a cada 3 dias: usar o cache da chave de assinatura o mantem vivo (o GitHub apaga caches parados por 7 dias)
+  schedule:
+    - cron: '17 6 */3 * *'
   workflow_dispatch:
 
 permissions:
@@ -53,6 +57,23 @@ jobs:
       - name: Instalar o ImageMagick (para redimensionar os icones)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
 
+      # a chave de assinatura precisa ser SEMPRE a mesma: so assim o Android aceita instalar o APK novo por cima do antigo
+      - name: Chave de assinatura (cache)
+        id: keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/tocacifra-keystore
+          key: tocacifra-keystore-v2
+
+      - name: Criar a chave de assinatura (so na primeira vez)
+        run: |
+          mkdir -p ~/tocacifra-keystore
+          if [ ! -f ~/tocacifra-keystore/tocacifra.keystore ]; then
+            keytool -genkeypair -v -keystore ~/tocacifra-keystore/tocacifra.keystore -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 36500 -dname "CN=TocaCifra,O=TocaCifra,C=BR"
+          fi
+          echo "TC_KEYSTORE=$HOME/tocacifra-keystore/tocacifra.keystore" >> "$GITHUB_ENV"
+
       - name: Permissoes e icone do app
         run: node scripts/android-prepare.mjs
 
@@ -62,13 +83,6 @@ jobs:
 
       - name: Copiar o site para dentro do app
         run: npx cap sync android
-
-      # a chave de assinatura "debug" e guardada em cache para que as atualizacoes do APK sejam instalaveis por cima
-      - name: Chave de assinatura (cache)
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: tocacifra-debug-keystore-v1
 
       - name: Compilar o APK
         working-directory: android

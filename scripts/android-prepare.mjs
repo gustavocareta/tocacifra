@@ -20,6 +20,30 @@ if (missing.length) {
 for (const p of wanted) if (!fs.readFileSync(manifestPath, 'utf8').includes(`android.permission.${p}`)) throw new Error(`Permissao ${p} nao foi adicionada.`);
 console.log('Permissoes ok:', wanted.join(', '));
 
+// ---- assinatura estavel + versionCode ----
+// O Android so atualiza um app "por cima" se o novo APK for assinado com a MESMA chave. A chave fica em TC_KEYSTORE
+// (guardada em cache entre as geracoes) e o versionCode sobe a cada geracao.
+const gradlePath = 'android/app/build.gradle';
+let gradle = fs.readFileSync(gradlePath, 'utf8');
+if (!gradle.includes('TC_KEYSTORE')) {
+  const signing = `    signingConfigs {
+        debug {
+            storeFile file(System.getenv('TC_KEYSTORE') ?: "\${System.getProperty('user.home')}/.android/debug.keystore")
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+`;
+  if (!/\bandroid\s*\{\n/.test(gradle)) throw new Error('build.gradle sem o bloco android { }.');
+  gradle = gradle.replace(/\bandroid\s*\{\n/, (m) => m + signing);
+}
+const code = Number(process.env.GITHUB_RUN_NUMBER) || 1;
+if (!/versionCode\s+\d+/.test(gradle)) throw new Error('build.gradle sem versionCode.');
+gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${code}`);
+fs.writeFileSync(gradlePath, gradle);
+console.log('Assinatura estavel e versionCode', code, 'ok');
+
 // ---- icones ----
 const im = ['magick', 'convert'].find((c) => { try { execFileSync(c, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } });
 if (!im) throw new Error('ImageMagick (magick/convert) nao esta disponivel no runner.');
