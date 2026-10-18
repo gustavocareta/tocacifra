@@ -17,7 +17,8 @@ export function isChord(token) {
 
 /** Linha de acordes: mais da metade dos termos sao acordes (ex.: "(Intro) G G/B C"). */
 export function isChordLine(line) {
-  const tokens = line.trim().split(/\s+/).filter(Boolean);
+  // ignora parenteses e marcas de repeticao/compasso: "( D4 D )", "(2x)", "|" nao contam como texto
+  const tokens = line.trim().split(/\s+/).map((t) => t.replace(/^[([]+|[)\]]+$/g, '')).filter((t) => t && !/^(\d+x|x\d+|[|\-–—/.:]+)$/i.test(t));
   if (!tokens.length) return false;
   const chords = tokens.filter(isChord).length;
   return chords > 0 && chords / tokens.length > 0.5;
@@ -71,6 +72,32 @@ export function stepsBetween(from, to) {
 
 export function normalizeBody(text) {
   return text.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** Titulo de parte ("[Refrao]", "Intro:"): nao e letra cantada, nao se cola na cifra de cima. */
+export const isHeadingLine = (text) => /^\s*\[[^\]]*\]\s*$/.test(text) || /:\s*$/.test(text);
+
+/** Indice da letra que pertence a linha de acordes `i` (pulando linhas em branco), ou -1 se nao houver. */
+export function lyricFor(lines, i) {
+  let k = i + 1;
+  while (k < lines.length && !lines[k].text.trim()) k++;
+  const l = lines[k];
+  return l && !l.chord && !isHeadingLine(l.text) ? k : -1;
+}
+
+/**
+ * Arruma a cifra: tira as linhas em branco entre os acordes e a letra deles, para que nunca
+ * fiquem separados (inclusive em paginas diferentes). Nao mexe em mais nada.
+ */
+export function tidyCifra(body) {
+  const lines = body.split('\n').map((text) => ({ text, chord: isChordLine(text) }));
+  const drop = new Set();
+  lines.forEach((l, i) => {
+    if (!l.chord) return;
+    const k = lyricFor(lines, i);
+    if (k > i + 1) for (let j = i + 1; j < k; j++) drop.add(j);
+  });
+  return lines.filter((_, i) => !drop.has(i)).map((l) => l.text).join('\n');
 }
 
 /** Classifica cada linha para a renderizacao. */

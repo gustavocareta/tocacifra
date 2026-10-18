@@ -1,4 +1,4 @@
-import { KEYS, SECTIONS, guessKey, isChord, isChordLine, parseLines, toggleSection, transposeBody, transposeChord, wrapPair } from './chords.js';
+import { KEYS, SECTIONS, guessKey, isChord, isChordLine, lyricFor, parseLines, tidyCifra, toggleSection, transposeBody, transposeChord, wrapPair } from './chords.js';
 import { facets, filterSongs } from './filters.js';
 import { onSystemThemeChange, readTheme, resolveTheme, saveTheme, systemPrefersDark, toggleTheme } from './theme.js';
 import { ACTIONS, DEFAULT_PEDAL, assignBinding, createMidiHub, keyBinding, labelFor, makeThrottle, midiBinding, normalizePedal, resolveAction } from './pedal.js';
@@ -578,7 +578,8 @@ function renderCifra(target, body, maxChars = 0) {
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     const next = lines[i + 1];
-    if (l.chord && next && !next.chord && next.text.trim()) { pushPair(next, l.text, next.text); i++; }
+    const k = l.chord ? lyricFor(lines, i) : -1; // acordes + a letra deles (mesmo com linhas em branco no meio) ficam sempre juntos
+    if (k > 0) { pushPair(lines[k], l.text, lines[k].text); i = k; }
     else if (l.chord) pushPair(l, l.text, '');
     else pushPair(l, '', l.text);
   }
@@ -700,6 +701,10 @@ route(/^#\/song\/(new|-?\d+)(\?prefill=1)?$/, async (view, id, prefill) => {
       h('button', { class: 'btn sm', type: 'button', onclick: () => shiftTone(-1) }, '− Tom'),
       h('button', { class: 'btn sm', type: 'button', onclick: () => shiftTone(1) }, '+ Tom'),
       h('button', { class: 'btn sm', type: 'button', onclick: () => { f.tone.value = guessKey(f.body.value); } }, 'Detectar tom'),
+      h('button', { class: 'btn sm', type: 'button', title: 'Junta cada linha de acordes com a letra dela (tira linhas em branco no meio)', onclick: () => {
+        const before = f.body.value; f.body.value = tidyCifra(before); f.body.dispatchEvent(new Event('input'));
+        toast(f.body.value === before ? 'A cifra já estava certa.' : 'Cifra arrumada: acordes e letra juntos.');
+      } }, 'Arrumar cifra'),
       h('button', { class: 'btn sm mk-refrao', type: 'button', title: 'Selecione as linhas e toque: marca ou desmarca como refrão (outra cor)', onclick: () => markSel('refrao') }, SECTIONS.refrao),
       h('button', { class: 'btn sm mk-voz2', type: 'button', title: 'Selecione as linhas e toque: marca ou desmarca como 2ª voz', onclick: () => markSel('voz2') }, SECTIONS.voz2)),
     tabBar,
@@ -1011,8 +1016,32 @@ route(/^#\/config$/, async (view) => {
             h('button', { class: 'btn', onclick: async () => { await refresh(); toast(data.online ? 'Conteúdo atualizado e salvo para uso offline.' : 'Sem internet: usando o conteúdo já baixado.'); navigate(); } }, 'Baixar conteúdo offline'),
             h('button', { class: 'btn bad', onclick: logout }, 'Sair da conta'))),
         updateCard(),
+        tidyCard(),
         backupCard())));
 });
+
+/** Cartao "Arrumar cifras": junta acordes e letra (sem linhas em branco no meio) em todas as musicas que precisarem. */
+function tidyCard() {
+  const status = h('p', { class: 'muted' }, 'Corrige músicas em que a cifra ficou separada da letra (linha em branco no meio), para nunca caírem em páginas diferentes.');
+  const btn = h('button', { class: 'btn', type: 'button', onclick: async () => {
+    const todo = data.songs.filter((s) => !isTmp(s.id) && tidyCifra(s.body) !== s.body);
+    if (!todo.length) { status.textContent = 'Todas as músicas já estão certas.'; return; }
+    if (!confirm(`Arrumar ${todo.length} música(s)? Só serão removidas linhas em branco entre a cifra e a letra.`)) return;
+    btn.disabled = true;
+    let ok = 0, fail = 0;
+    try {
+      for (const s of todo) {
+        status.textContent = `Arrumando ${ok + fail + 1}/${todo.length}…`;
+        try { await backend.putSong(s.id, { title: s.title, artist: s.artist, tone: s.tone, capo: s.capo, style: s.style, body: tidyCifra(s.body) }); ok++; } catch { fail++; }
+      }
+      await refresh();
+      status.textContent = `Pronto: ${ok} música(s) arrumada(s)${fail ? `, ${fail} falharam` : ''}.`;
+    } catch (e) { status.textContent = e.message || 'Não foi possível arrumar.'; } finally { btn.disabled = false; }
+  } }, 'Arrumar todas as músicas');
+  const n = data.songs.filter((s) => tidyCifra(s.body) !== s.body).length;
+  if (n) status.textContent += ` Encontrei ${n} música(s) para arrumar.`;
+  return h('div', { class: 'card' }, h('h2', {}, 'Arrumar cifras'), status, h('div', { class: 'row' }, btn));
+}
 
 /** Cartao "Atualizar o app": no Android baixa o APK novo (instala por cima); no site/iPhone recarrega com a versao mais nova. */
 function updateCard() {
