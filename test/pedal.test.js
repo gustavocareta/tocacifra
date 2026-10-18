@@ -118,3 +118,12 @@ t2('keyBinding usa o numero da tecla quando o Android nao informa key/code', () 
   assert.equal(keyBinding({ key: 'Unidentified', code: '', keyCode: 39 }), 'k:KeyCode39');
   assert.equal(labelFor('k:KeyCode39'), 'Tecla nº 39');
 });
+
+import { classifyGesture } from '../public/pedal.js';
+t2('classifyGesture separa toque de deslizar e acha a direcao', () => {
+  assert.deepEqual(classifyGesture(5, -8), { kind: 'tap' });
+  assert.deepEqual(classifyGesture(-120, 20), { kind: 'swipe', dir: 'left' });
+  assert.deepEqual(classifyGesture(90, -10), { kind: 'swipe', dir: 'right' });
+  assert.deepEqual(classifyGesture(10, -150), { kind: 'swipe', dir: 'up' });
+  assert.deepEqual(classifyGesture(-5, 150), { kind: 'swipe', dir: 'down' });
+});

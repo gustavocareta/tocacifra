@@ -304,3 +304,6 @@ button.artist-row{width:100%;text-align:left;font:inherit;color:inherit;cursor:p
 .install .qr{display:block;margin:8px auto 12px;background:#fff;padding:8px;border-radius:12px;max-width:100%;height:auto;}
 .install ol{padding-left:20px;line-height:1.5;}
 @media (max-width:420px){.stage .bar{gap:5px;padding-left:8px;padding-right:8px;}.stage .bar .rb{width:42px;height:42px;}.stage .bar .rb.tone{min-width:42px;padding:0 8px;}.stage .bar .rb.nav{width:50px;height:50px;}}
+
+/* paginacao: o painel trata o deslizar (dedo ou pedal) sozinho */
+.stage .body.pages{touch-action:none;user-select:none;-webkit-user-select:none;}

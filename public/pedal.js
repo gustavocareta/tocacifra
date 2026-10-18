@@ -79,6 +79,17 @@ export function labelFor(binding) {
   return val.split('+').map((p) => KEY_LABELS[p] ?? p.replace(/^KeyCode(\d+)$/, 'Tecla nº $1').replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad(\d)$/, 'Num $1').replace(/^F(\d+)$/, 'F$1')).join(' + ');
 }
 
+/**
+ * Classifica um gesto de toque (dx/dy em px): "tap" ou "swipe" com a direcao do movimento dos dedos.
+ * Alguns pedais viram-pagina (ex.: modo retrato/paisagem) nao digitam teclas: eles "tocam" ou "deslizam" na tela.
+ */
+export function classifyGesture(dx, dy, min = 40) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (ax < min && ay < min) return { kind: 'tap' };
+  if (ax >= ay) return { kind: 'swipe', dir: dx < 0 ? 'left' : 'right' };
+  return { kind: 'swipe', dir: dy < 0 ? 'up' : 'down' };
+}
+
 /** Qual acao esta ligada a esse botao (ou null). */
 export function resolveAction(bindings, id) {
   if (!id) return null;

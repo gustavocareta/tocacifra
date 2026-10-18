@@ -1,7 +1,7 @@
 import { KEYS, SECTIONS, guessKey, isChord, isChordLine, lyricFor, parseLines, tidyCifra, toggleSection, transposeBody, transposeChord, wrapPair } from './chords.js';
 import { facets, filterSongs } from './filters.js';
 import { onSystemThemeChange, readTheme, resolveTheme, saveTheme, systemPrefersDark, toggleTheme } from './theme.js';
-import { ACTIONS, DEFAULT_PEDAL, assignBinding, createMidiHub, keyBinding, labelFor, makeThrottle, midiBinding, normalizePedal, resolveAction } from './pedal.js';
+import { ACTIONS, DEFAULT_PEDAL, assignBinding, classifyGesture, createMidiHub, keyBinding, labelFor, makeThrottle, midiBinding, normalizePedal, resolveAction } from './pedal.js';
 import { INSTRUMENTS, chordShape, chordSvg } from './diagrams.js';
 import { TUNINGS, detectPitch, freqToNote, nearestString, noteToFreq } from './tuner.js';
 import { OfflineError } from './errors.js';
@@ -917,7 +917,18 @@ function pedalSection(onChange) {
       testOut.textContent = `Recebido: ${labelFor(binding)}${ev?.native ? ' (via Android' + (ev.device ? ': ' + ev.device : '') + ')' : ''} → ${a ? ACTIONS.find((x) => x.id === a).label : '(nenhuma ação ligada a este botão)'}`;
     }, { midi: cfg().midi });
     if (!testing) { myStop(); return; }
-    stop = myStop;
+    // pedais que tocam/deslizam na tela em vez de digitar teclas: mostra o gesto recebido
+    let from = null;
+    const down = (e) => { from = { x: e.clientX, y: e.clientY }; };
+    const up = (e) => {
+      if (!from) return;
+      const g = classifyGesture(e.clientX - from.x, e.clientY - from.y);
+      const dirs = { left: 'para a esquerda', right: 'para a direita', up: 'para cima', down: 'para baixo' };
+      testOut.textContent = g.kind === 'tap' ? `Recebido: toque na tela (${Math.round((e.clientX / innerWidth) * 100)}% da largura, ${Math.round((e.clientY / innerHeight) * 100)}% da altura)` : `Recebido: deslizar ${dirs[g.dir]}`;
+      from = null;
+    };
+    window.addEventListener('pointerdown', down, true); window.addEventListener('pointerup', up, true);
+    stop = () => { myStop(); window.removeEventListener('pointerdown', down, true); window.removeEventListener('pointerup', up, true); };
   }
 
   async function setMidi(on) {
@@ -1353,7 +1364,18 @@ route(/^#\/palco(\?.*)?$/, async (view, query) => {
   stageCleanup = () => { disposed = true; unsubMidi?.(); wakeLock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisible); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); window.removeEventListener('keydown', onKey, true); window.removeEventListener('tc-nativekey', onNative); window.removeEventListener('resize', onResize); clearInterval(autoTimer); stopAudio(); };
 
   // toque: terco direito avanca, terco esquerdo volta (no meio nao faz nada, para poder selecionar/rolar)
-  body.addEventListener('click', (e) => { const x = e.clientX / window.innerWidth; if (x > 0.66) page(1); else if (x < 0.33) page(-1); });
+  // deslizar (dedo ou pedal que "desliza"): esquerda/cima = avanca, direita/baixo = volta (so na paginacao; na rolagem o proprio dedo rola)
+  let touch0 = null;
+  body.addEventListener('pointerdown', (e) => { touch0 = { x: e.clientX, y: e.clientY }; });
+  body.addEventListener('pointercancel', () => { touch0 = null; });
+  body.addEventListener('pointerup', (e) => {
+    if (!touch0) return;
+    const g = classifyGesture(e.clientX - touch0.x, e.clientY - touch0.y);
+    touch0 = null;
+    if (g.kind === 'tap') { const x = e.clientX / window.innerWidth; if (x > 0.66) page(1); else if (x < 0.33) page(-1); return; }
+    if (!isPages()) return;
+    page(g.dir === 'left' || g.dir === 'up' ? 1 : -1);
+  });
   // ---- menu de opcoes (folha) e instrucoes, como no ToqueFacil ----
   function openMenu() {
     if (searching) return; searching = true;
