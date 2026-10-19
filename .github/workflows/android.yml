@@ -2,6 +2,7 @@ name: Gerar o aplicativo Android (APK)
 
 # Monta o APK do TocaCifra (a pasta public/ dentro de um app Android, com Capacitor) e publica em
 #   https://github.com/gustavocareta/tocacifra/releases/tag/android-latest
+# (Se uma execucao travar no GitHub, mexer neste arquivo dispara outra e cancela a presa.)
 # Roda sozinho quando o site muda (public/) e pode ser rodado a mao em Actions > "Gerar o aplicativo Android (APK)".
 on:
   push:
