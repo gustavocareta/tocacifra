@@ -427,7 +427,9 @@ function facetSelect(allLabel, items, current, onPick) {
 }
 
 route(/^#\/songs$/, async (view) => {
-  await refresh();
+  // com dados em cache, abre na hora (ex.: ao sair do painel de palco) e sincroniza em segundo plano; so espera a rede na primeira carga
+  const firstLoad = !data.at;
+  if (firstLoad) await refresh();
   const q = h('input', { type: 'search', placeholder: 'Buscar por título, letra ou artista', value: songFilters.term, enterkeyhint: 'search', autocomplete: 'off' });
   const listEl = h('div', { class: 'list' });
   const count = h('p', { class: 'muted count' });
@@ -477,6 +479,7 @@ route(/^#\/songs$/, async (view) => {
   };
   q.addEventListener('input', () => { songFilters.term = q.value; draw(); });
   draw();
+  if (!firstLoad) refresh().then(() => { if (listEl.isConnected) draw(); }).catch(() => { /* sem rede: segue com o cache */ });
   view.replaceChildren(
     h('div', { class: 'page' },
       h('div', { class: 'actions-row' },
